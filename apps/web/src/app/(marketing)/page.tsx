@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Hero } from "@/components/marketing/Hero/Hero";
 import { TrustedBy } from "@/components/marketing/Social/TrustedBy";
 import { Testimonials } from "@/components/marketing/Social/Testimonials";
@@ -23,9 +24,9 @@ export default function MarketingPage() {
             <a href="#observatory" className="hover:text-primary transition-micro">Observatory</a>
             <a href="#pricing" className="hover:text-primary transition-micro">Pricing</a>
           </div>
-          <a href="#pricing" className="px-5 py-2 bg-white text-black font-bold rounded text-xs font-mono hover:bg-primary hover:text-black transition-micro shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+          <Link href="/sign-up" className="px-5 py-2 bg-white text-black font-bold rounded text-xs font-mono hover:bg-primary hover:text-black transition-micro shadow-[0_0_15px_rgba(255,255,255,0.1)]">
             Deploy Now
-          </a>
+          </Link>
         </nav>
       </header>
 

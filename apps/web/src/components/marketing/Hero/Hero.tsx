@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect } from 'react';
+import Link from 'next/link';
 import { pricingStore } from '@/lib/store/pricingStore';
 import { NeuralBackground } from './NeuralBackground';
 import { AIArchitecture } from '../Observatory/AIArchitecture';
@@ -32,9 +33,9 @@ export const Hero = React.memo(() => {
             </p>
             
             <div className="flex flex-wrap gap-4 mt-4">
-              <a href="#pricing" className="group px-8 py-4 bg-white text-black rounded-lg font-bold font-mono hover:bg-gray-200 transition-micro flex items-center gap-3">
+              <Link href="/sign-up" className="group px-8 py-4 bg-white text-black rounded-lg font-bold font-mono hover:bg-gray-200 transition-micro flex items-center gap-3">
                 <span className="bg-black text-white text-[10px] py-1 px-2 rounded group-hover:bg-primary transition-micro">&gt;</span> Build A Workflow
-              </a>
+              </Link>
             </div>
           </div>
 
