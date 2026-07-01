@@ -18,8 +18,6 @@
   },
   "packageManager": "npm@11.11.0",
   "devDependencies": {
-    "lightningcss": "^1.32.0",
-    "lightningcss-linux-x64-gnu": "^1.32.0",
     "turbo": "^2.10.2",
     "typescript": "^5.0.0"
   }

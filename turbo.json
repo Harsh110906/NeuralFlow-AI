@@ -9,6 +9,7 @@
     },
     "build": {
       "dependsOn": ["^build", "^generate"],
+      "env": ["CLERK_SECRET_KEY"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "lint": {
