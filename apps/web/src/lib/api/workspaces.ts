@@ -7,6 +7,7 @@ export async function getBootstrapWorkspaceId(token: string | null): Promise<str
       headers: {
         Authorization: `Bearer ${token}`,
       },
+      cache: 'no-store',
     });
     if (!res.ok) {
       console.error('Failed to fetch bootstrap workspace:', await res.text());
