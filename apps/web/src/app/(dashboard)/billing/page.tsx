@@ -4,20 +4,26 @@ import { SubscriptionCard } from '@/components/billing/subscription-card';
 import { UsageDashboardClient } from '@/components/billing/usage-dashboard-client';
 import { auth } from '@clerk/nextjs/server';
 
-// Note: In a real app, workspaceId would come from the URL or a context provider.
-// For this scaffolding, we'll assume a dummy workspaceId or extract from headers/cookies.
-const currentWorkspaceId = 'dummy-workspace-id';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function BillingDashboard() {
   let summary = null;
   let ledger: any[] = [];
   let error = null;
+  let currentWorkspaceId = '';
 
   try {
     const { getToken } = await auth();
     const token = await getToken();
-    summary = await getBillingSummary(currentWorkspaceId, token);
-    ledger = await getLedgerHistory(currentWorkspaceId, token);
+    const workspaceId = await getBootstrapWorkspaceId(token);
+    
+    if (!workspaceId) {
+      error = 'Please select a workspace to view billing.';
+    } else {
+      currentWorkspaceId = workspaceId;
+      summary = await getBillingSummary(workspaceId, token);
+      ledger = await getLedgerHistory(workspaceId, token);
+    }
   } catch (err: any) {
     error = err.message || 'Failed to load billing summary.';
   }

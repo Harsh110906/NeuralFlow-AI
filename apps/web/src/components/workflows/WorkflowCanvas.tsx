@@ -125,7 +125,14 @@ function Canvas({ workflowId, initialData }: { workflowId: string, initialData?:
     setIsDoctorRunning(true);
     try {
       const token = await getToken();
-      const issues = await runWorkflowDoctor(workflowId, 'dummy-workspace-id', { nodes, edges }, token);
+      // Fetch workflow to get actual workspaceId
+      const wfRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/workflows/${workflowId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const wf = wfRes.ok ? await wfRes.json() : null;
+      const actualWorkspaceId = wf?.workspaceId || 'dummy-workspace-id';
+      
+      const issues = await runWorkflowDoctor(workflowId, actualWorkspaceId, { nodes, edges }, token);
       setDoctorIssues(issues);
       setShowDoctorModal(true);
     } catch (err) {
