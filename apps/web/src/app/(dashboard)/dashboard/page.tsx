@@ -19,7 +19,11 @@ export default async function DashboardPage() {
     cache: 'no-store' 
   }).catch(() => null);
   
-  const workspace = res?.ok ? await res.json() : null;
+  let workspace = null;
+  if (res?.ok) {
+    const text = await res.text();
+    workspace = text ? JSON.parse(text) : null;
+  }
   const workflows = workspace?.workflows || [];
   const agents = workspace?.agents || [];
 

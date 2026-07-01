@@ -9,9 +9,14 @@ export class WorkspaceService {
     return this.prisma.workspace.findMany();
   }
 
-  async getWorkspaceBySlug(slug: string) {
-    return this.prisma.workspace.findUnique({
-      where: { slug },
+  async getWorkspaceBySlug(idOrSlug: string) {
+    return this.prisma.workspace.findFirst({
+      where: {
+        OR: [
+          { id: idOrSlug },
+          { slug: idOrSlug }
+        ]
+      },
       include: {
         workflows: true,
         agents: true,
