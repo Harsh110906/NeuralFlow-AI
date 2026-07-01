@@ -6,8 +6,7 @@ import { ShieldAlert, Search, Download, Eye, EyeOff, Key } from 'lucide-react';
 
 export default function AuditExplorerPage() {
   const { getToken } = useAuth();
-  const workspaceId = 'default-workspace'; 
-
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
   const [logs, setLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,7 +16,17 @@ export default function AuditExplorerPage() {
     try {
       const token = await getToken();
       const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-      const res = await fetch(`${API_BASE}/governance/audit/${workspaceId}?limit=100`, {
+      
+      let currentWorkspaceId = workspaceId;
+      if (!currentWorkspaceId) {
+        const bsRes = await fetch(`${API_BASE}/workspaces/bootstrap`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!bsRes.ok) return;
+        const ws = await bsRes.json();
+        currentWorkspaceId = ws.id;
+        setWorkspaceId(ws.id);
+      }
+      
+      const res = await fetch(`${API_BASE}/governance/audit/${currentWorkspaceId}?limit=100`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (res.ok) {

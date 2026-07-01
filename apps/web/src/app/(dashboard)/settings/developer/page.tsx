@@ -8,8 +8,8 @@ import { use } from 'react';
 export default function DeveloperSettingsPage(props: { params: Promise<{ id: string }> }) {
   const params = use(props.params);
   const { getToken } = useAuth();
-  // Using a mock workspace ID for now or it would come from context/url
-  const workspaceId = 'default-workspace'; 
+  
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [webhooks, setWebhooks] = useState<any[]>([]);
@@ -23,9 +23,18 @@ export default function DeveloperSettingsPage(props: { params: Promise<{ id: str
     const token = await getToken();
     const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
     
+    let currentWorkspaceId = workspaceId;
+    if (!currentWorkspaceId) {
+      const bsRes = await fetch(`${API_BASE}/workspaces/bootstrap`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!bsRes.ok) return;
+      const ws = await bsRes.json();
+      currentWorkspaceId = ws.id;
+      setWorkspaceId(ws.id);
+    }
+    
     const [keysRes, webhooksRes] = await Promise.all([
-      fetch(`${API_BASE}/workspaces/${workspaceId}/developer/api-keys`, { headers: { Authorization: `Bearer ${token}` } }),
-      fetch(`${API_BASE}/workspaces/${workspaceId}/developer/webhooks`, { headers: { Authorization: `Bearer ${token}` } })
+      fetch(`${API_BASE}/workspaces/${currentWorkspaceId}/developer/api-keys`, { headers: { Authorization: `Bearer ${token}` } }),
+      fetch(`${API_BASE}/workspaces/${currentWorkspaceId}/developer/webhooks`, { headers: { Authorization: `Bearer ${token}` } })
     ]);
     
     if (keysRes.ok) setApiKeys(await keysRes.json());

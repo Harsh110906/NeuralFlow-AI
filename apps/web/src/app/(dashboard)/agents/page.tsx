@@ -1,16 +1,16 @@
 import { AgentListClient } from '@/components/agents/AgentListClient';
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-
-const currentWorkspaceId = 'dummy-workspace-id';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function AgentsPage() {
-  const { userId } = await auth();
+  const { userId, getToken } = await auth();
   if (!userId) {
     redirect('/sign-in');
   }
 
-  const workspaceId = currentWorkspaceId;
+  const token = await getToken();
+  const workspaceId = await getBootstrapWorkspaceId(token);
   
   if (!workspaceId) {
     return (

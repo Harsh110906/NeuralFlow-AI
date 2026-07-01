@@ -19,15 +19,25 @@ export default function PlaygroundPage() {
   const [curatedAssertions, setCuratedAssertions] = useState('[\n  { "type": "CONTAINS", "value": "test" },\n  { "type": "LLM_JUDGE", "value": "HelpfulnessRubric" }\n]');
 
   const { getToken } = useAuth();
-  const { session } = useSession();
-  const workspaceId = session?.user?.publicMetadata?.workspaceId as string || 'default-workspace';
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
       try {
         const token = await getToken();
         if (!token) return;
-        const ds = await getDatasets(workspaceId, token);
+        
+        let currentWorkspaceId = workspaceId;
+        if (!currentWorkspaceId) {
+          const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+          const bsRes = await fetch(`${API_BASE}/workspaces/bootstrap`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!bsRes.ok) return;
+          const ws = await bsRes.json();
+          currentWorkspaceId = ws.id;
+          setWorkspaceId(ws.id);
+        }
+
+        const ds = await getDatasets(currentWorkspaceId!, token);
         setDatasets(ds);
         if (ds.length > 0) setSelectedDatasetId(ds[0].id);
       } catch (e) {
@@ -35,7 +45,8 @@ export default function PlaygroundPage() {
       }
     }
     load();
-  }, [getToken, workspaceId]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleRun = async () => {
     if (!agentId || !inputJson) return;

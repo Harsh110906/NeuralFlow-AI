@@ -21,6 +21,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
+    "@clerk/express": "^2.1.35",
     "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.4",
@@ -35,14 +36,14 @@
     "@temporalio/workflow": "^1.18.1",
     "ansis": "^4.2.0",
     "bullmq": "^5.79.2",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
     "ioredis": "^5.10.1",
     "openai": "^6.45.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "stripe": "^22.3.0",
-    "swagger-ui-express": "^5.0.1",
-    "class-validator": "^0.14.1",
-    "class-transformer": "^0.5.1"
+    "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",

@@ -3,15 +3,31 @@
 import { useState, useEffect } from 'react';
 import { Activity, Brain, Server, AlertTriangle, CheckCircle, Clock } from 'lucide-react';
 
+import { useAuth } from '@clerk/nextjs';
+
 export default function ObservatoryPage() {
   const [metrics, setMetrics] = useState<any>(null);
+  const { getToken } = useAuth();
+  const [workspaceId, setWorkspaceId] = useState<string | null>(null);
 
   useEffect(() => {
-    // In a real app we'd get workspaceId from auth/context
-    const workspaceId = 'production'; 
     const fetchMetrics = async () => {
       try {
-        const res = await fetch(`http://localhost:3001/observatory/metrics/${workspaceId}`);
+        const token = await getToken();
+        let currentWorkspaceId = workspaceId;
+        if (!currentWorkspaceId) {
+          const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+          const bsRes = await fetch(`${API_BASE}/workspaces/bootstrap`, { headers: { Authorization: `Bearer ${token}` } });
+          if (!bsRes.ok) return;
+          const ws = await bsRes.json();
+          currentWorkspaceId = ws.id;
+          setWorkspaceId(ws.id);
+        }
+
+        const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+        const res = await fetch(`${API_BASE}/observatory/metrics/${currentWorkspaceId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         if (!res.ok) throw new Error('Failed');
         const data = await res.json();
         setMetrics(data);
@@ -22,6 +38,7 @@ export default function ObservatoryPage() {
     fetchMetrics();
     const interval = setInterval(fetchMetrics, 5000);
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!metrics) {

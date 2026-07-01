@@ -1,13 +1,14 @@
 import { auth } from '@clerk/nextjs/server';
 import { getPendingApprovals } from '@/lib/api/executions';
 import Link from 'next/link';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function ExecutionsPage() {
   const { getToken } = await auth();
   const token = await getToken();
   
-  // Hardcoded for scaffolding
-  const workspaceId = 'dummy-workspace-id';
+  const workspaceId = await getBootstrapWorkspaceId(token);
+  if (!workspaceId) return <div className="p-8 text-white">Loading workspace...</div>;
   
   const pendingApprovals = await getPendingApprovals(workspaceId, token).catch(() => []);
 
