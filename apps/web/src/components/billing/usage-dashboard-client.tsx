@@ -71,9 +71,9 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Usage & Budget Overview */}
-        <div className="border p-6 rounded-lg shadow-sm bg-white flex flex-col">
+        <div className="border border-gray-200 dark:border-gray-800 p-6 rounded-lg shadow-sm bg-white dark:bg-zinc-950 flex flex-col">
           <div className="flex justify-between items-start mb-4">
-            <h2 className="text-xl font-semibold">Current Usage vs Budget</h2>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Current Usage vs Budget</h2>
             <span className={`px-2 py-1 text-xs rounded-full font-medium ${statusColor}`}>
               {statusText}
             </span>
@@ -81,10 +81,10 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
           
           <div className="mt-4 flex-1">
             <div className="flex justify-between text-sm mb-1">
-              <span>Spend: ${currentSpendUsd.toFixed(2)}</span>
-              <span className="text-gray-500">Budget: ${monthlyBudget.toFixed(2)}</span>
+              <span className="text-gray-900 dark:text-white">Spend: ${currentSpendUsd.toFixed(2)}</span>
+              <span className="text-gray-500 dark:text-gray-400">Budget: ${monthlyBudget.toFixed(2)}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-4 relative">
+            <div className="w-full bg-gray-200 dark:bg-gray-800 rounded-full h-4 relative">
               {/* Soft limit marker */}
               <div 
                 className="absolute top-0 bottom-0 w-1 bg-yellow-400 z-10" 
@@ -92,14 +92,14 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
                 title={`Warning Threshold: $${(monthlyBudget * softWarningThreshold).toFixed(2)}`}
               ></div>
               <div 
-                className={`h-4 rounded-full ${isBlocked ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : 'bg-black'}`}
+                className={`h-4 rounded-full ${isBlocked ? 'bg-red-500' : isWarning ? 'bg-yellow-500' : 'bg-black dark:bg-white'}`}
                 style={{ width: `${Math.min((currentSpendUsd / monthlyBudget) * 100, 100)}%` }}
               ></div>
             </div>
           </div>
           
           {loading ? (
-             <div className="mt-8 text-sm text-gray-500 text-center">Loading chart...</div>
+             <div className="mt-8 text-sm text-gray-500 dark:text-gray-400 text-center">Loading chart...</div>
           ) : usageData.length > 0 ? (
             <div className="mt-8 h-32 flex items-end space-x-2">
               {usageData.map((d, i) => {
@@ -107,7 +107,7 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
                 return (
                   <div key={i} className="flex-1 flex flex-col items-center group relative">
                     <div 
-                      className="w-full bg-blue-100 group-hover:bg-blue-300 rounded-t transition-colors"
+                      className="w-full bg-blue-100 dark:bg-blue-900/50 group-hover:bg-blue-300 dark:group-hover:bg-blue-700 rounded-t transition-colors"
                       style={{ height: `${height}px`, minHeight: '4px' }}
                     ></div>
                     {/* Tooltip */}
@@ -119,36 +119,36 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
               })}
             </div>
           ) : (
-             <div className="mt-8 text-sm text-gray-500 text-center h-32 flex items-center justify-center">No usage data this month.</div>
+             <div className="mt-8 text-sm text-gray-500 dark:text-gray-400 text-center h-32 flex items-center justify-center">No usage data this month.</div>
           )}
         </div>
 
         {/* Policy Configuration */}
-        <div className="border p-6 rounded-lg shadow-sm bg-white">
-          <h2 className="text-xl font-semibold mb-4">Billing Guardrails</h2>
+        <div className="border border-gray-200 dark:border-gray-800 p-6 rounded-lg shadow-sm bg-white dark:bg-zinc-950">
+          <h2 className="text-xl font-semibold mb-4 text-gray-900 dark:text-white">Billing Guardrails</h2>
           
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Monthly Budget ($)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Monthly Budget ($)</label>
               <input 
                 type="number" 
                 value={monthlyBudget}
                 onChange={e => setMonthlyBudget(Number(e.target.value))}
-                className="w-full border-gray-300 rounded-md shadow-sm p-2 border"
+                className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm p-2 border bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                 min="0"
               />
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Soft Warning Threshold (%)</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Soft Warning Threshold (%)</label>
               <input 
                 type="number" 
                 value={Math.round(softWarningThreshold * 100)}
                 onChange={e => setSoftWarningThreshold(Number(e.target.value) / 100)}
-                className="w-full border-gray-300 rounded-md shadow-sm p-2 border"
+                className="w-full border-gray-300 dark:border-gray-700 rounded-md shadow-sm p-2 border bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                 min="1" max="100"
               />
-              <p className="text-xs text-gray-500 mt-1">Alerts when spend reaches {Math.round(softWarningThreshold * 100)}% of the monthly budget.</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Alerts when spend reaches {Math.round(softWarningThreshold * 100)}% of the monthly budget.</p>
             </div>
             
             <div className="flex items-center">
@@ -157,19 +157,19 @@ export function UsageDashboardClient({ workspaceId, summary }: { workspaceId: st
                 id="hardCutoff"
                 checked={hardCutoff}
                 onChange={e => setHardCutoff(e.target.checked)}
-                className="h-4 w-4 text-black border-gray-300 rounded"
+                className="h-4 w-4 text-black dark:text-white border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-zinc-900"
               />
-              <label htmlFor="hardCutoff" className="ml-2 block text-sm text-gray-900">
+              <label htmlFor="hardCutoff" className="ml-2 block text-sm text-gray-900 dark:text-gray-300">
                 Enable Hard Cutoff
               </label>
             </div>
-            <p className="text-xs text-gray-500 pl-6">If enabled, workflows will be blocked from executing when the budget is reached.</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 pl-6">If enabled, workflows will be blocked from executing when the budget is reached.</p>
             
             <div className="pt-4">
               <button
                 onClick={handleSavePolicy}
                 disabled={savingPolicy}
-                className="bg-black text-white px-4 py-2 rounded font-medium hover:bg-gray-800 disabled:opacity-50"
+                className="bg-black dark:bg-white text-white dark:text-black px-4 py-2 rounded font-medium hover:bg-gray-800 dark:hover:bg-gray-200 disabled:opacity-50 transition-colors"
               >
                 {savingPolicy ? 'Saving...' : 'Save Policy'}
               </button>

@@ -13,8 +13,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <ClerkProvider>
-      <html lang="en">
+    <ClerkProvider appearance={{ baseTheme: undefined }}>
+      <html lang="en" className="dark">
         <body className="antialiased bg-zinc-950 text-white min-h-screen font-sans">
           {children}
         </body>
