@@ -15,6 +15,7 @@
     "lint": "turbo run lint",
     "clean": "turbo run clean",
     "test": "turbo run test",
+    "build:api": "turbo run build --filter=@neuralflow/api...",
     "start:prod": "npm --workspace=@neuralflow/api run start:prod"
   },
   "packageManager": "npm@11.11.0",
