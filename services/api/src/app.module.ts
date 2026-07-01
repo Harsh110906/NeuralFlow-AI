@@ -38,10 +38,26 @@ import { ApprovalModule } from './approval/approval.module';
         limit: 1000, // accommodate legitimate burst traffic
       },
     ]),
-    BullModule.forRoot({
-      connection: {
-        host: 'localhost',
-        port: 6379,
+    BullModule.forRootAsync({
+      useFactory: () => {
+        if (process.env.REDIS_URL) {
+          const url = new URL(process.env.REDIS_URL);
+          return {
+            connection: {
+              host: url.hostname,
+              port: parseInt(url.port, 10),
+              password: url.password || undefined,
+              username: url.username || undefined,
+              tls: url.protocol === 'rediss:' ? {} : undefined,
+            },
+          };
+        }
+        return {
+          connection: {
+            host: 'localhost',
+            port: 6379,
+          },
+        };
       },
     }),
     AppConfigModule,

@@ -17,9 +17,15 @@ export class RedisEventBusProvider
     Array<(payload: EventPayload) => void>
   >();
 
-  onModuleInit() {
-    this.pubClient = new Redis({ host: 'localhost', port: 6379 });
-    this.subClient = new Redis({ host: 'localhost', port: 6379 });
+  async onModuleInit() {
+    const redisUrl = process.env.REDIS_URL;
+    if (redisUrl) {
+      this.pubClient = new Redis(redisUrl);
+      this.subClient = new Redis(redisUrl);
+    } else {
+      this.pubClient = new Redis({ host: 'localhost', port: 6379 });
+      this.subClient = new Redis({ host: 'localhost', port: 6379 });
+    }
 
     this.subClient.on('message', (channel, message) => {
       const event = channel as AgentEvent;
