@@ -49,7 +49,7 @@ export default function PlaygroundPage() {
   }, []);
 
   const handleRun = async () => {
-    if (!agentId || !inputJson) return;
+    if (!agentId || !inputJson || !workspaceId) return;
     setLoading(true);
     try {
       const token = await getToken();
