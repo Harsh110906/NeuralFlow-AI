@@ -2,17 +2,28 @@ import { Activity, PlayCircle, AlertCircle, Bot, GitBranch, AlertTriangle } from
 import Link from 'next/link';
 import { getPendingApprovals } from '@/lib/api/approvals';
 import { auth } from '@clerk/nextjs/server';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function DashboardPage() {
-  // Fetch real data from the NestJS backend
-  const res = await fetch('http://localhost:3001/workspaces/test-org', { cache: 'no-store' }).catch(() => null);
+  const { getToken } = await auth();
+  const token = await getToken();
+  const workspaceId = await getBootstrapWorkspaceId(token);
+
+  if (!workspaceId) {
+    return <div className="p-8 text-white max-w-6xl mx-auto">Loading workspace...</div>;
+  }
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const res = await fetch(`${API_BASE}/workspaces/${workspaceId}`, { 
+    headers: { Authorization: `Bearer ${token}` },
+    cache: 'no-store' 
+  }).catch(() => null);
+  
   const workspace = res?.ok ? await res.json() : null;
   const workflows = workspace?.workflows || [];
   const agents = workspace?.agents || [];
 
-  const { getToken } = await auth();
-  const token = await getToken();
-  const pendingApprovals = await getPendingApprovals('test-org', token).catch(() => []);
+  const pendingApprovals = await getPendingApprovals(workspaceId, token).catch(() => []);
 
   return (
     <div className="max-w-6xl mx-auto space-y-8 pb-12">
