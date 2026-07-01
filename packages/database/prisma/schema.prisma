@@ -1,0 +1,848 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [vector]
+}
+
+model User {
+  id        String  @id @default(uuid())
+  email     String  @unique
+  clerkId   String  @unique
+  firstName String?
+  lastName  String?
+
+  // SCIM Provisioning Support
+  externalId       String?
+  identityProvider String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspaceMemberships WorkspaceMember[]
+  ownedWorkspaces      Workspace[]
+}
+
+model Workspace {
+  id                     String  @id @default(uuid())
+  name                   String
+  slug                   String  @unique
+  stripeId               String?
+  stripeConnectAccountId String?
+  plan                   String  @default("FREE")
+
+  ownerId String
+  owner   User   @relation(fields: [ownerId], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members              WorkspaceMember[]
+  workflows            Workflow[]
+  auditLogs            AuditLog[]
+  evaluationBudget     EvaluationBudget?
+  billingLedgers       BillingLedger[]
+  agents               Agent[]
+  secrets              Secret[]
+  memories             Memory[]
+  templates            Template[]
+  creatorProfile       CreatorProfile?
+  roles                Role[]
+  securityPolicy       WorkspaceSecurityPolicy?
+  serviceAccounts      ServiceAccount[]
+  billingPolicy        WorkspaceBillingPolicy?
+  customConnectors     CustomConnector[]
+  connectorSecrets     ConnectorSecret[]
+  approvalRequests     ApprovalRequest[]
+  webhookSubscriptions WebhookSubscription[]
+}
+
+model WorkspaceMember {
+  id          String @id @default(uuid())
+  userId      String
+  workspaceId String
+
+  roleId String
+
+  // SCIM Provisioning Support
+  provisioningStatus String?
+  externalId         String?
+  identityProvider   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  role      Role      @relation(fields: [roleId], references: [id])
+
+  @@unique([userId, workspaceId])
+}
+
+model Workflow {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  dagJson     Json? // The React Flow structure
+  version     Int      @default(1)
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  healthScore Float?
+
+  workspace   Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  executions  Execution[]
+  simulations SimulationRun[]
+}
+
+model Agent {
+  id           String   @id @default(uuid())
+  workspaceId  String
+  name         String
+  systemPrompt String   @db.Text
+  model        String   @default("gpt-4o-mini")
+  tools        Json? // Array of allowed tool IDs
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  workspace   Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  memories    Memory[]
+  versions    AgentVersion[]
+  experiments AgentExperiment[]
+  releases    AgentRelease[]
+}
+
+model Execution {
+  id          String    @id @default(uuid())
+  workflowId  String
+  status      String    @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED, PAUSED
+  startedAt   DateTime?
+  completedAt DateTime?
+  tokenUsage  Int       @default(0)
+  cost        Float     @default(0.0) // In USD
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workflow  Workflow          @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  events    ExecutionEvent[]
+  approvals ApprovalRequest[]
+}
+
+model ExecutionEvent {
+  id          String  @id @default(uuid())
+  executionId String
+  type        String // EXECUTION_STARTED, NODE_STARTED, NODE_COMPLETED, NODE_FAILED, EXECUTION_COMPLETED, EXECUTION_FAILED
+  nodeId      String? // Optional, if related to a specific node
+  data        Json? // Event data (outputs, errors)
+
+  // Token Tracking & Observability
+  promptTokens     Int?
+  completionTokens Int?
+  totalTokens      Int?
+  model            String?
+  estimatedCost    Float?
+
+  createdAt DateTime @default(now())
+
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+}
+
+model SimulationRun {
+  id               String   @id @default(uuid())
+  workflowId       String
+  estimatedCost    Float
+  estimatedRuntime Int
+  estimatedTokens  Int
+  riskScore        String // LOW RISK, MEDIUM RISK, HIGH RISK
+  createdAt        DateTime @default(now())
+
+  workflow Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+}
+
+model Secret {
+  id             String    @id @default(uuid())
+  workspaceId    String
+  name           String
+  encryptedValue String    @db.Text
+  version        Int       @default(1)
+  kmsProvider    String    @default("LOCAL")
+  kmsKeyId       String?
+  description    String?   @db.Text
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastRotatedAt  DateTime?
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+model Memory {
+  id          String                       @id @default(uuid())
+  workspaceId String
+  agentId     String?
+  sourceType  String // CONVERSATION, WORKFLOW_OUTPUT, DOCUMENT, NOTE, SYSTEM
+  content     String                       @db.Text
+  metadata    Json?
+  embedding   Unsupported("vector(1536)")?
+  createdAt   DateTime                     @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  agent     Agent?    @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}
+
+// Config & Trust
+model MarketplaceConfig {
+  id                        String @id @default("default")
+  defaultPlatformFeePercent Float  @default(15.0)
+  verifiedCreatorFeePercent Float  @default(10.0)
+  enterpriseFeePercent      Float  @default(5.0)
+}
+
+model CreatorProfile {
+  id                String  @id @default(uuid())
+  workspaceId       String  @unique
+  totalRevenueCents BigInt  @default(0)
+  totalDownloads    Int     @default(0)
+  averageRating     Float   @default(0.0)
+  verificationLevel String  @default("NONE") // NONE, CREATOR_VERIFIED, NEURALFLOW_VERIFIED, ENTERPRISE_CERTIFIED
+  featuredCreator   Boolean @default(false)
+
+  deletedAt DateTime?
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Security Scanning
+model TemplateSecurityScan {
+  id         String   @id @default(uuid())
+  templateId String
+  status     String // PENDING, PASSED, FAILED
+  severity   String   @default("LOW") // LOW, MEDIUM, HIGH, CRITICAL
+  findings   Json?
+  scannedAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplatePermissionsManifest {
+  id          String   @id @default(uuid())
+  templateId  String   @unique
+  permissions Json // { "connectors": [], "actions": [], "secrets": [], "externalDomains": [] }
+  createdAt   DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model Template {
+  id                   String   @id @default(uuid())
+  workspaceId          String
+  forkedFromTemplateId String?
+  name                 String
+  description          String?
+  category             String
+  type                 String // WORKFLOW, AGENT, BUNDLE
+  tags                 String[]
+  badges               String[] // TRENDING, ENTERPRISE_READY, VERIFIED_SECURE
+
+  // Visibility & Trust
+  status          String  @default("DRAFT")
+  visibility      String  @default("PUBLIC")
+  riskLevel       String  @default("SAFE")
+  isGlobal        Boolean @default(false)
+  activeVersionId String?
+
+  // Flexible Monetization
+  pricingType     String  @default("FREE")
+  priceCents      Int     @default(0)
+  billingInterval String?
+  usageUnit       String?
+  usagePriceCents Int?
+
+  // Transparency
+  estimatedExecutionCostCents Int?
+  estimatedExecutionTimeMs    Int?
+
+  // Counters
+  installs  Int   @default(0)
+  rating    Float @default(0.0)
+  forkCount Int   @default(0)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  workspace           Workspace                    @relation(fields: [workspaceId], references: [id])
+  originalTemplate    Template?                    @relation("Forks", fields: [forkedFromTemplateId], references: [id])
+  forks               Template[]                   @relation("Forks")
+  versions            TemplateVersion[]
+  reviews             TemplateReview[]
+  analytics           TemplateAnalytics?
+  dependencies        TemplateDependency[]
+  secretRequirements  TemplateSecretRequirement[]
+  installations       TemplateInstallation[]
+  securityScans       TemplateSecurityScan[]
+  permissionsManifest TemplatePermissionsManifest?
+}
+
+model TemplateSecretRequirement {
+  id          String  @id @default(uuid())
+  templateId  String
+  key         String
+  description String
+  required    Boolean @default(true)
+  masked      Boolean @default(true)
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateInstallation {
+  id             String    @id @default(uuid())
+  templateId     String
+  versionId      String
+  workspaceId    String
+  installedAt    DateTime  @default(now())
+  currentVersion Int
+  autoUpdate     Boolean   @default(false)
+  updateChannel  String? // stable, beta
+  lastUpdatedAt  DateTime?
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateDependency {
+  id             String   @id @default(uuid())
+  templateId     String
+  dependencyType String // CONNECTOR, AGENT, SECRET, TEMPLATE
+  dependencyName String
+  required       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateVersion {
+  id         String  @id @default(uuid())
+  templateId String
+  version    Int
+  dagJson    Json?
+  agentJson  Json?
+  changelog  String?
+
+  // Compatibility & Validation
+  minNeuralFlowVersion      String?
+  maxNeuralFlowVersion      String?
+  requiredFeatures          String[]
+  requiredConnectors        String[]
+  requiredConnectorVersions Json?
+  requiredSecrets           String[]
+
+  // Deprecation
+  deprecationStatus         String? @default("ACTIVE") // ACTIVE, DEPRECATED, END_OF_LIFE
+  recommendedUpgradeVersion Int?
+
+  createdBy String // userId
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateReview {
+  id         String   @id @default(uuid())
+  templateId String
+  userId     String
+  rating     Int
+  review     String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model TemplateAnalytics {
+  id                        String @id @default(uuid())
+  templateId                String @unique
+  views                     Int    @default(0)
+  installs                  Int    @default(0)
+  purchases                 Int    @default(0)
+  revenueCents              BigInt @default(0)
+  activeUsers               Int    @default(0)
+  retentionRate             Float  @default(0.0)
+  forkAdoptionRate          Float  @default(0.0)
+  forkGeneratedRevenueCents BigInt @default(0)
+
+  // Ranking Signals
+  trendingScore Float @default(0.0)
+  qualityScore  Float @default(0.0)
+  trustScore    Float @default(0.0)
+
+  template Template @relation(fields: [templateId], references: [id], onDelete: Cascade)
+}
+
+model MarketplacePurchase {
+  id          String   @id @default(uuid())
+  templateId  String
+  buyerId     String
+  priceCents  Int
+  purchasedAt DateTime @default(now())
+}
+
+model PurchaseAudit {
+  id         String   @id @default(uuid())
+  purchaseId String
+  action     String // PURCHASE, REFUND, CHARGEBACK, SUSPICIOUS
+  reason     String?
+  timestamp  DateTime @default(now())
+}
+
+model AuditLog {
+  id          String @id @default(uuid())
+  workspaceId String
+  actor       String
+  action      String
+  resource    String
+
+  severity String @default("INFO")
+  category String @default("GENERAL")
+
+  hash          String?
+  previousHash  String?
+  correlationId String?
+  ipAddress     String?
+  userAgent     String?
+  metadata      Json?
+  timestamp     DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Session & Governance
+model WorkspaceSecurityPolicy {
+  id                    String   @id @default(uuid())
+  workspaceId           String   @unique
+  sessionTimeoutMinutes Int      @default(60)
+  requireMfa            Boolean  @default(false)
+  enforceSso            Boolean  @default(false)
+  allowedDomains        String[]
+  maxApiKeyAgeDays      Int      @default(90)
+  auditRetentionDays    Int      @default(365)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// Advanced RBAC
+model Role {
+  id          String  @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+
+  isSystem Boolean @default(false)
+
+  parentRoleId String?
+  parentRole   Role?   @relation("RoleHierarchy", fields: [parentRoleId], references: [id])
+  childRoles   Role[]  @relation("RoleHierarchy")
+
+  permissions     RolePermission[]
+  members         WorkspaceMember[]
+  serviceAccounts ServiceAccount[]
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique // e.g., 'workflows:read', 'secrets:write'
+  description String?
+
+  roles RolePermission[]
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+}
+
+// Service Accounts & API Keys (Machine-to-Machine)
+model ServiceAccount {
+  id              String    @id @default(uuid())
+  workspaceId     String
+  name            String
+  description     String?
+  roleId          String
+  allowedIpRanges String[] // e.g., ["10.0.0.0/8"]
+  disabledAt      DateTime?
+  createdBy       String?
+
+  apiKeys   ApiKey[]
+  role      Role      @relation(fields: [roleId], references: [id])
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id               String    @id @default(uuid())
+  serviceAccountId String
+  keyHash          String    @unique
+  prefix           String
+  lastUsedAt       DateTime?
+  expiresAt        DateTime?
+  revokedAt        DateTime?
+  lastRotatedAt    DateTime?
+  revokedReason    String?
+  createdBy        String? // userId
+  createdAt        DateTime  @default(now())
+
+  scopes         ApiKeyScope[]
+  serviceAccount ServiceAccount @relation(fields: [serviceAccountId], references: [id], onDelete: Cascade)
+}
+
+model ApiKeyScope {
+  id       String @id @default(uuid())
+  apiKeyId String
+  scope    String // e.g., 'executions:run'
+
+  apiKey ApiKey @relation(fields: [apiKeyId], references: [id], onDelete: Cascade)
+}
+
+model ApprovalRequest {
+  id               String    @id @default(uuid())
+  workspaceId      String
+  executionId      String
+  nodeId           String
+  nodeName         String
+  nodeType         String
+  actionTarget     String
+  reason           String
+  executionSummary String?   @db.Text
+  payloadSnapshot  Json
+  decisionReason   String?   @db.Text
+  status           String    @default("PENDING") // PENDING, APPROVED, REJECTED, EXPIRED, CANCELLED
+  requestedBy      String
+  approvedBy       String?
+  approvedAt       DateTime?
+  expiresAt        DateTime?
+  createdAt        DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  execution Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Phase 8E: Agent Evaluation Lab & A/B Testing
+// ============================================
+
+model AgentVersion {
+  id           String   @id @default(uuid())
+  agentId      String
+  version      Int
+  systemPrompt String   @db.Text
+  model        String
+  temperature  Float    @default(0.7)
+  tools        Json?
+  createdBy    String
+  checksum     String
+  createdAt    DateTime @default(now())
+
+  agent          Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  variants       ExperimentVariant[]
+  evaluationRuns EvaluationRun[]
+  releases       AgentRelease[]
+}
+
+model AgentRelease {
+  id          String   @id @default(uuid())
+  agentId     String
+  versionId   String
+  environment String // 'STAGING', 'PRODUCTION'
+  promotedBy  String
+  createdAt   DateTime @default(now())
+
+  agent   Agent        @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  version AgentVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, environment])
+}
+
+model EvaluationDataset {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  versions EvaluationDatasetVersion[]
+}
+
+model EvaluationDatasetVersion {
+  id          String   @id @default(uuid())
+  datasetId   String
+  version     Int
+  description String?
+  createdAt   DateTime @default(now())
+
+  dataset   EvaluationDataset    @relation(fields: [datasetId], references: [id], onDelete: Cascade)
+  testCases EvaluationTestCase[]
+  runs      EvaluationRun[]
+}
+
+model EvaluationTestCase {
+  id               String @id @default(uuid())
+  datasetVersionId String
+  input            Json
+  expectedOut      Json?
+  assertions       Json // e.g., [{ type: "CONTAINS", value: "success" }]
+
+  datasetVersion EvaluationDatasetVersion @relation(fields: [datasetVersionId], references: [id], onDelete: Cascade)
+}
+
+model EvaluationRun {
+  id                    String @id @default(uuid())
+  datasetVersionId      String
+  agentVersionId        String
+  status                String @default("PENDING") // PENDING, RUNNING, COMPLETED, FAILED
+  deterministicPassRate Float?
+  judgeScoreAvg         Float?
+  avgLatencyMs          Int?
+  totalCostUsd          Float?
+
+  // Phase 9 Judge Additions
+  judgeVersionId      String?
+  judgeConfig         Json?
+  interJudgeAgreement Float?
+  judgeConfidenceAvg  Float?
+
+  createdAt DateTime @default(now())
+
+  datasetVersion EvaluationDatasetVersion @relation(fields: [datasetVersionId], references: [id])
+  agentVersion   AgentVersion             @relation(fields: [agentVersionId], references: [id])
+  traces         EvaluationTrace[]
+}
+
+// Phase 9: LLM Judge
+
+model JudgeVersion {
+  id         String   @id @default(uuid())
+  name       String
+  model      String
+  rubricHash String
+  createdAt  DateTime @default(now())
+
+  // We could add relation to EvaluationRun but let's keep it loose to avoid circular deps 
+  // or just store the ID in EvaluationRun for historical tracking.
+}
+
+model EvaluationBudget {
+  id              String @id @default(uuid())
+  workspaceId     String @unique
+  monthlyLimitUsd Float
+  currentUsageUsd Float  @default(0)
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model EvaluationTrace {
+  id                  String   @id @default(uuid())
+  evaluationRunId     String
+  input               Json
+  output              Json
+  rubric              String?  @db.Text
+  judgeResponse       Json?
+  deterministicPassed Boolean?
+  createdAt           DateTime @default(now())
+
+  evaluationRun EvaluationRun @relation(fields: [evaluationRunId], references: [id], onDelete: Cascade)
+  humanReviews  HumanReview[]
+}
+
+model HumanReview {
+  id         String   @id @default(uuid())
+  traceId    String
+  reviewerId String
+  score      Float
+  comments   String?  @db.Text
+  createdAt  DateTime @default(now())
+
+  trace EvaluationTrace @relation(fields: [traceId], references: [id], onDelete: Cascade)
+}
+
+// Phase 10: Feature Flags & Billing Ledger
+
+model FeatureFlag {
+  id          String  @id @default(uuid())
+  key         String  @unique
+  name        String
+  description String?
+  enabled     Boolean @default(false)
+
+  // Governance
+  owner     String?
+  type      String    @default("RELEASE") // RELEASE, EXPERIMENT, OPS, PERMISSION
+  expiresAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  overrides FeatureFlagOverride[]
+}
+
+model FeatureFlagOverride {
+  id         String  @id @default(uuid())
+  flagId     String
+  targetType String // WORKSPACE, USER
+  targetId   String
+  enabled    Boolean
+
+  flag FeatureFlag @relation(fields: [flagId], references: [id], onDelete: Cascade)
+
+  @@unique([flagId, targetType, targetId])
+}
+
+model BillingLedger {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  type           String // USAGE, SUBSCRIPTION, ADJUSTMENT, RECONCILIATION
+  amountUsd      Float
+  idempotencyKey String?  @unique
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model AgentExperiment {
+  id        String    @id @default(uuid())
+  agentId   String
+  name      String
+  status    String // DRAFT, RUNNING, COMPLETED
+  startedAt DateTime?
+  endedAt   DateTime?
+
+  agent    Agent               @relation(fields: [agentId], references: [id], onDelete: Cascade)
+  variants ExperimentVariant[]
+  metrics  ExperimentMetrics[]
+}
+
+model ExperimentVariant {
+  id           String @id @default(uuid())
+  experimentId String
+  versionId    String
+  weight       Int // e.g., 20 for 20%
+
+  experiment AgentExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  version    AgentVersion    @relation(fields: [versionId], references: [id], onDelete: Cascade)
+}
+
+model ExperimentMetrics {
+  id           String @id @default(uuid())
+  experimentId String
+
+  conversions Int
+  successRate Float
+  avgCost     Float
+  avgLatency  Float
+
+  createdAt DateTime @default(now())
+
+  experiment AgentExperiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+}
+
+model OutboxEvent {
+  id            String    @id @default(uuid())
+  aggregateType String // e.g., 'Billing', 'Marketplace'
+  aggregateId   String // The ID of the related record
+  eventType     String // e.g., 'USAGE_RECORDED', 'PURCHASE_COMPLETED'
+  payload       Json
+  status        String    @default("PENDING") // PENDING, PROCESSED, FAILED
+  error         String? // Store error message if FAILED
+  createdAt     DateTime  @default(now())
+  processedAt   DateTime?
+}
+
+model WorkspaceBillingPolicy {
+  id                   String  @id @default(uuid())
+  workspaceId          String  @unique
+  monthlyBudget        Float?
+  dailyBudget          Float?
+  executionCostLimit   Float?
+  modelSpendLimit      Float?
+  softWarningThreshold Float   @default(0.8) // 80%
+  hardCutoff           Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ============================================
+// Phase B: Custom Connectors
+// ============================================
+
+model WebhookSubscription {
+  id          String   @id @default(uuid())
+  workspaceId String
+  endpointUrl String
+  secret      String
+  events      String[] // e.g., ["execution.completed", "approval.requested"]
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace    Workspace            @relation(fields: [workspaceId], references: [id])
+  deliveryLogs WebhookDeliveryLog[]
+}
+
+model WebhookDeliveryLog {
+  id              String    @id @default(uuid())
+  subscriptionId  String
+  deliveryId      String
+  eventType       String
+  payloadSnapshot String // Redacted JSON string
+  responseStatus  Int?
+  success         Boolean
+  attempts        Int       @default(1)
+  nextRetryAt     DateTime?
+  errorMessage    String?
+  createdAt       DateTime  @default(now())
+
+  subscription WebhookSubscription @relation(fields: [subscriptionId], references: [id])
+}
+
+model CustomConnector {
+  id          String   @id @default(uuid())
+  workspaceId String
+  name        String
+  description String?
+  authType    String   @default("NONE") // NONE, API_KEY, BEARER, BASIC
+  manifest    Json // The strict NeuralFlow schema
+  status      String   @default("DRAFT") // DRAFT, PUBLISHED
+  version     Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  secrets   ConnectorSecret[]
+}
+
+model ConnectorSecret {
+  id             String   @id @default(uuid())
+  workspaceId    String
+  connectorId    String
+  keyName        String // the header or query parameter name
+  encryptedValue String   @db.Text
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  connector CustomConnector @relation(fields: [connectorId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, connectorId, keyName])
+}

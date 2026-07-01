@@ -1,0 +1,26 @@
+{
+  "name": "@neuralflow/database",
+  "version": "1.0.0",
+  "description": "NeuralFlow shared Prisma database package",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"No tests specified\"",
+    "build": "prisma generate",
+    "generate": "prisma generate"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@prisma/client": "^6.19.3"
+  },
+  "devDependencies": {
+    "prisma": "^6.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
+  },
+  "prisma": {
+    "seed": "ts-node seed.ts"
+  }
+}

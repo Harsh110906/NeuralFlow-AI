@@ -1,0 +1,51 @@
+services:
+  # NestJS API Backend
+  - type: web
+    name: neuralflow-api
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /health
+    plan: standard
+    scaling:
+      minInstances: 2
+      maxInstances: 5
+      targetMemoryPercent: 75
+    envVars:
+      - fromGroup: neuralflow-shared-env
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+
+  # BullMQ Execution Workers
+  - type: worker
+    name: neuralflow-workers
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run start:worker
+    plan: standard
+    scaling:
+      minInstances: 2
+      maxInstances: 10
+      targetMemoryPercent: 80
+    envVars:
+      - fromGroup: neuralflow-shared-env
+      - key: NODE_ENV
+        value: production
+
+envVarGroups:
+  - name: neuralflow-shared-env
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: CLERK_SECRET_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false

@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: neuralflow-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: neuralflow
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: neuralflow-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+
+  temporal:
+    image: temporalio/admin-tools:latest
+    container_name: neuralflow-temporal
+    command: temporal server start-dev --ui-port 8080
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
