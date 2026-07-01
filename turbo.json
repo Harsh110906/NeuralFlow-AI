@@ -3,6 +3,7 @@
   "globalDependencies": [
     "**/.env.*local"
   ],
+  "globalEnv": ["CLERK_SECRET_KEY"],
   "tasks": {
     "generate": {
       "cache": false
