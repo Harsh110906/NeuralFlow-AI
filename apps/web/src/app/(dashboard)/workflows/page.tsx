@@ -2,17 +2,23 @@ import React from 'react';
 import Link from 'next/link';
 import { getWorkflows } from '@/lib/api/workflows';
 import { auth } from '@clerk/nextjs/server';
-
-const currentWorkspaceId = 'dummy-workspace-id';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function WorkflowsPage() {
   let workflows: any[] = [];
   let error = null;
+  let currentWorkspaceId = '';
 
   try {
     const { getToken } = await auth();
     const token = await getToken();
-    workflows = await getWorkflows(currentWorkspaceId, token);
+    const workspaceId = await getBootstrapWorkspaceId(token);
+    if (!workspaceId) {
+      error = 'Please select a workspace to view workflows.';
+    } else {
+      currentWorkspaceId = workspaceId;
+      workflows = await getWorkflows(workspaceId, token);
+    }
   } catch (err: any) {
     error = err.message || 'Failed to load workflows.';
   }

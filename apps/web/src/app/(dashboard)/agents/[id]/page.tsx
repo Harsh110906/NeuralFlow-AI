@@ -3,7 +3,8 @@ import { AgentStudio } from '@/components/agents/AgentStudio';
 export default async function AgentPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   // Mock fetch from backend
-  const res = await fetch(`http://localhost:3001/agents/${params.id}`, { cache: 'no-store' }).catch(() => null);
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+  const res = await fetch(`${API_BASE}/agents/${params.id}`, { cache: 'no-store' }).catch(() => null);
   const agent = res?.ok ? await res.json() : null;
 
   if (!agent && params.id !== 'new') {

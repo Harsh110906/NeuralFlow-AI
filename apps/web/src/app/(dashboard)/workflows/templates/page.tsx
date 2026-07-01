@@ -2,21 +2,24 @@ import React from 'react';
 import { getTemplates } from '@/lib/api/templates';
 import { TemplateListClient } from '@/components/workflows/templates/TemplateListClient';
 import { auth } from '@clerk/nextjs/server';
+import { getBootstrapWorkspaceId } from '@/lib/api/workspaces';
 
 export default async function TemplatesPage() {
   let templates: any[] = [];
   let error = null;
+  let currentWorkspaceId = '';
 
   try {
     const { getToken } = await auth();
     const token = await getToken();
+    const workspaceId = await getBootstrapWorkspaceId(token);
+    currentWorkspaceId = workspaceId || '';
+    
     // We can fetch public templates globally (or for this workspace)
     templates = await getTemplates(token, undefined, true);
   } catch (err: any) {
     error = err.message || 'Failed to load templates.';
   }
-
-  const currentWorkspaceId = 'dummy-workspace-id';
 
   return (
     <div className="p-8 max-w-7xl mx-auto text-black dark:text-white">
