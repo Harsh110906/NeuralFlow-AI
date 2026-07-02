@@ -44,26 +44,28 @@ function LogicNodeComponent({ data, selected }: { data: any, selected?: boolean 
         </div>
       );
     }
+  } else if (data.status === 'SKIPPED') {
+    borderColor = 'border-gray-400 dark:border-gray-600 border-dashed opacity-60';
   }
 
   return (
     <div className={`relative flex flex-col bg-white dark:bg-zinc-900 border ${borderColor} rounded-xl shadow-md transition-all duration-200 min-w-[200px] overflow-visible group`}>
       {/* Node Accent Left Border */}
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-purple-500 rounded-l-xl opacity-80" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${data.status === 'SKIPPED' ? 'bg-gray-400' : 'bg-purple-500'} rounded-l-xl opacity-80`} />
 
       {/* Target Handle (Left) */}
       <Handle 
         id="target" 
         type="target" 
         position={Position.Left} 
-        className="w-3 h-3 bg-gray-200 dark:bg-zinc-700 border-2 border-white dark:border-zinc-900 -left-1.5 z-10 transition-colors hover:bg-purple-400 hover:scale-125" 
+        className={`w-3 h-3 bg-gray-200 dark:bg-zinc-700 border-2 border-white dark:border-zinc-900 -left-1.5 z-10 transition-colors ${data.status === 'SKIPPED' ? '' : 'hover:bg-purple-400'} hover:scale-125`} 
       />
 
       {statusOverlay}
 
       {/* Node Header */}
-      <div className={`flex items-center gap-3 ${isCompact ? 'p-3' : 'px-4 py-3'}`}>
-        <div className="w-8 h-8 rounded-lg bg-purple-50 dark:bg-purple-500/10 flex items-center justify-center shrink-0 border border-purple-100 dark:border-purple-500/20 text-purple-600 dark:text-purple-400">
+      <div className={`flex items-center gap-3 ${isCompact ? 'p-3' : 'px-4 py-3'} ${data.status === 'SKIPPED' ? 'opacity-60' : ''}`}>
+        <div className={`w-8 h-8 rounded-lg ${data.status === 'SKIPPED' ? 'bg-gray-100 text-gray-500 dark:bg-zinc-800' : 'bg-purple-50 dark:bg-purple-500/10 border border-purple-100 dark:border-purple-500/20 text-purple-600 dark:text-purple-400'} flex items-center justify-center shrink-0`}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" /></svg>
         </div>
         <div className="flex flex-col min-w-0 flex-1">

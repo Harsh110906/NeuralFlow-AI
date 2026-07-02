@@ -272,7 +272,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
       return;
     }
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/executions/start/${workflowId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/workflows/${workflowId}/execute`, {
         method: 'POST',
       });
       if (!response.ok) throw new Error('Failed to start execution');
@@ -505,9 +505,13 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         <SidebarPanel 
           workspaceId={workspaceId}
           selectedNode={selectedNode}
-          onUpdateNode={handleUpdateNode}
+          onUpdateNode={(id, newData) => {
+            setNodes((nds) => nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...newData } } : n));
+            markDirty();
+          }}
           onClose={() => setIsSidebarOpen(false)} 
           onGenerateWorkflow={handleGenerateWorkflow} 
+          currentDagJson={{ nodes, edges }}
         />
       )}
 

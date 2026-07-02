@@ -29,19 +29,43 @@ Keep your answers helpful and concise.`;
     return this.llmProvider.stream(prompt, systemPrompt);
   }
 
-  async generateWorkflowSpec(prompt: string) {
-    const systemPrompt = `You are a Workflow Architect. Given a user's prompt, generate a JSON specification for an AI workflow.
-The JSON must have the following structure:
+  async generateWorkflowSpec(prompt: string, currentDagJson?: any) {
+    const hasExistingGraph = currentDagJson && currentDagJson.nodes && currentDagJson.nodes.length > 0;
+    
+    let systemPrompt = `You are a Workflow Architect. Given a user's prompt, generate a JSON specification for an AI automation workflow.
+The workflow supports these node types: 'trigger', 'agent', 'tool', 'logic'.
+Subtypes for tools: 'email', 'webhook', 'wait'.
+Config settings: 'draftMode' (boolean, default true for emails), 'emailProvider', 'systemPrompt', 'filterRules'.
+
+You must return a structured patch/update model. Do NOT return the full graph if one exists, only operations.
+The JSON MUST have the following structure:
 {
   "name": "string (Short title)",
   "goal": "string (Summary of what it does)",
-  "agents": [{ "name": "string", "role": "string", "systemPrompt": "string" }],
-  "tools": [{ "name": "string", "description": "string" }],
-  "steps": [{ "id": "string", "type": "trigger|agent|tool|logic", "label": "string", "agentName": "string (optional)", "dependsOn": ["string"] }]
+  "operations": [
+    { 
+      "type": "add_node", 
+      "node": { 
+        "id": "string", 
+        "type": "trigger|agent|tool|logic", 
+        "data": { "label": "string", "subType": "string", "config": {} } 
+      } 
+    },
+    { "type": "update_node", "nodeId": "string", "data": { "config": {} } },
+    { "type": "add_edge", "edge": { "id": "string", "source": "string", "target": "string" } },
+    { "type": "remove_edge", "edgeId": "string" }
+  ]
 }
 Respond ONLY with valid JSON.`;
 
-    const result = await this.llmProvider.generate(prompt, systemPrompt);
+    let finalPrompt = prompt;
+    if (hasExistingGraph) {
+      finalPrompt = `Current Graph:\n${JSON.stringify(currentDagJson)}\n\nUser Request: ${prompt}\n\nGenerate operations to patch this graph (e.g. insert a node, add edges).`;
+    } else {
+      finalPrompt = `User Request: ${prompt}\n\nGenerate operations to build this graph from scratch.`;
+    }
+
+    const result = await this.llmProvider.generate(finalPrompt, systemPrompt);
     try {
       const spec = JSON.parse(
         result.content
@@ -55,48 +79,52 @@ Respond ONLY with valid JSON.`;
     }
   }
 
-  async compileWorkflowDAG(workspaceId: string, spec: any) {
-    // 2. Build DAG
-    const nodes: any[] = [];
-    const edges: any[] = [];
+  async compileWorkflowDAG(workspaceId: string, spec: any, currentDagJson?: any) {
+    const nodes: any[] = currentDagJson?.nodes ? [...currentDagJson.nodes] : [];
+    const edges: any[] = currentDagJson?.edges ? [...currentDagJson.edges] : [];
 
-    let yPos = 50;
-    for (const step of spec.steps || []) {
-      const nodeId = step.id;
-      const data: any = { label: step.label };
-
-      if (step.type === 'agent') {
-        const matchingAgent = (spec.agents || []).find(
-          (a: any) => a.name === step.agentName,
-        );
-        if (matchingAgent) {
-          data.overrideConfig = { systemPrompt: matchingAgent.systemPrompt };
-        }
+    // Find the rightmost node to append horizontally
+    let maxX = 50;
+    for (const n of nodes) {
+      if (n.position && n.position.x > maxX) {
+        maxX = n.position.x;
       }
+    }
 
-      nodes.push({
-        id: nodeId,
-        type: step.type,
-        position: { x: 250, y: yPos },
-        data,
-      });
-      yPos += 150;
+    let xPos = maxX + 350;
 
-      for (const depId of step.dependsOn || []) {
+    for (const op of spec.operations || []) {
+      if (op.type === 'add_node') {
+        nodes.push({
+          id: op.node.id,
+          type: op.node.type,
+          position: { x: xPos, y: 150 }, // Horizontal layout
+          data: op.node.data || {},
+        });
+        xPos += 350;
+      } else if (op.type === 'update_node') {
+        const node = nodes.find(n => n.id === op.nodeId);
+        if (node) {
+          node.data = { ...node.data, ...op.data };
+        }
+      } else if (op.type === 'add_edge') {
         edges.push({
-          id: `e-${depId}-${nodeId}`,
-          source: depId,
-          target: nodeId,
+          id: op.edge.id,
+          source: op.edge.source,
+          target: op.edge.target,
           type: 'smoothstep',
         });
+      } else if (op.type === 'remove_edge') {
+        const idx = edges.findIndex(e => e.id === op.edgeId);
+        if (idx !== -1) edges.splice(idx, 1);
       }
     }
 
     return {
-      name: spec.name,
-      description: spec.goal,
+      name: spec.name || 'Generated Workflow',
+      description: spec.goal || '',
       dagJson: { nodes, edges },
-      agents: [], // Agents are now local overrides, no DB records created
+      agents: [], 
     };
   }
 }

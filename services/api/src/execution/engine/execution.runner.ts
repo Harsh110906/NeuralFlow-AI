@@ -35,15 +35,13 @@ export class ExecutionRunner {
       const nodes: any[] = dagJson.nodes || [];
       const edges: any[] = dagJson.edges || [];
 
-      // Validate Graph
-      const triggerNodes = nodes.filter((n) => n.type === 'trigger');
-      if (triggerNodes.length !== 1) {
-        throw new Error('Graph must contain exactly one trigger node.');
-      }
+      // 1. Cycle Detection & Structural Validation
+      this.validateDAG(nodes, edges);
 
-      const triggerNode = triggerNodes[0];
-      let currentNode = triggerNode;
-      const inputs: Record<string, any> = {};
+      const triggerNodes = nodes.filter((n) => n.type === 'trigger');
+      if (triggerNodes.length === 0) {
+        throw new Error('Graph must contain at least one trigger node.');
+      }
 
       const workflow = await this.prisma.workflow.findUnique({
         where: { id: workflowId },
@@ -51,10 +49,78 @@ export class ExecutionRunner {
       if (!workflow) throw new Error(`Workflow ${workflowId} not found`);
       const workspaceId = workflow.workspaceId;
 
+      const inputs: Record<string, any> = {};
+      const nodeStatus = new Map<string, 'PENDING' | 'RUNNING' | 'COMPLETED' | 'FAILED' | 'SKIPPED'>();
+      const nodeRetries = new Map<string, number>();
+      
+      nodes.forEach(n => nodeStatus.set(n.id, 'PENDING'));
+
+      // Topological Execution State
+      let hasRunningNodes = false;
+
+      // Evaluate node readiness based on topological dependencies
+      const evaluateReadiness = () => {
+        const readyNodes: any[] = [];
+        for (const node of nodes) {
+          if (nodeStatus.get(node.id) !== 'PENDING') continue;
+
+          const incomingEdges = edges.filter(e => e.target === node.id);
+          
+          if (incomingEdges.length === 0) {
+            // No dependencies, ready to run (usually trigger nodes)
+            readyNodes.push(node);
+          } else {
+            // Check if ALL dependencies have resolved
+            let allResolved = true;
+            let anySkipped = false;
+
+            for (const edge of incomingEdges) {
+              const sourceStatus = nodeStatus.get(edge.source);
+              if (sourceStatus === 'PENDING' || sourceStatus === 'RUNNING') {
+                allResolved = false;
+                break;
+              }
+              if (sourceStatus === 'SKIPPED' || sourceStatus === 'FAILED') {
+                anySkipped = true; // If a dependency failed or skipped, we might need to skip this
+              }
+            }
+
+            if (allResolved) {
+              if (anySkipped) {
+                // If dependencies were skipped, we skip this node too
+                nodeStatus.set(node.id, 'SKIPPED');
+                this.logger.logEvent(executionId, 'NODE_SKIPPED', node.id);
+                // Trigger re-evaluation since a state changed
+                return evaluateReadiness();
+              } else {
+                readyNodes.push(node);
+              }
+            }
+          }
+        }
+        return readyNodes;
+      };
+
       let stepIndex = 0;
 
-      // Basic linear/sequential traversal for Phase 4
-      while (currentNode) {
+      // Future-ready execution loop: evaluates readiness and processes sequentially
+      // but structured to allow Promise.all() parallel execution easily.
+      while (true) {
+        const readyNodes = evaluateReadiness();
+        
+        if (readyNodes.length === 0) {
+          if (Array.from(nodeStatus.values()).some(s => s === 'RUNNING')) {
+            // Wait for running nodes to finish (in full parallel mode)
+            // For now, we don't have true parallel async tasks in this loop
+            break; 
+          }
+          break; // Nothing more to run
+        }
+
+        // Pop the first ready node
+        const currentNode = readyNodes[0];
+        nodeStatus.set(currentNode.id, 'RUNNING');
+
         await this.logger.logEvent(
           executionId,
           'NODE_STARTED',
@@ -75,18 +141,47 @@ export class ExecutionRunner {
           throw new Error(`Unsupported node type: ${currentNode.type}`);
         }
 
-        const result = await executor.execute(context);
+        let retryCount = 0;
+        const maxRetries = currentNode.data.config?.retryCount || 1; // Default to 1 attempt (0 retries)
+        let success = false;
+        let result: any;
 
-        if (result.status === 'FAILED') {
-          await this.logger.logEvent(
-            executionId,
-            'NODE_FAILED',
-            currentNode.id,
-            { error: result.error },
-          );
-          throw new Error(`Node ${currentNode.id} failed: ${result.error}`);
+        while (retryCount < maxRetries && !success) {
+          try {
+            result = await executor.execute(context);
+            if (result.status === 'FAILED') {
+              throw new Error(result.error);
+            }
+            success = true;
+          } catch (e: any) {
+            retryCount++;
+            if (retryCount >= maxRetries) {
+              await this.logger.logEvent(
+                executionId,
+                'NODE_FAILED',
+                currentNode.id,
+                { error: e.message || String(e) },
+              );
+              nodeStatus.set(currentNode.id, 'FAILED');
+              
+              // Handle Failure Policy
+              const failurePolicy = currentNode.data.config?.failurePolicy || 'STOP';
+              if (failurePolicy === 'STOP') {
+                throw new Error(`Node ${currentNode.id} failed after ${retryCount} attempts: ${e.message}`);
+              }
+            } else {
+              // Simple backoff
+              await new Promise(res => setTimeout(res, 1000 * retryCount));
+            }
+          }
         }
 
+        if (!success) {
+          // If failure policy wasn't STOP, we just marked it FAILED. Downstream will skip.
+          continue;
+        }
+
+        // Handle PAUSED / Human Approval
         if (result.status === 'PAUSED') {
           await this.logger.logEvent(
             executionId,
@@ -94,18 +189,14 @@ export class ExecutionRunner {
             currentNode.id,
             { output: result.output },
           );
-          await this.stateManager.updateStatus(
-            executionId,
-            'AWAITING_APPROVAL',
-          );
+          await this.stateManager.updateStatus(executionId, 'AWAITING_APPROVAL');
 
-          // Create the pending ApprovalRequest
           await this.prisma.approvalRequest.create({
             data: {
               workspaceId,
               executionId,
               nodeId: currentNode.id,
-              nodeName: currentNode.data?.name || 'Approval Checkpoint',
+              nodeName: currentNode.data?.label || 'Approval Checkpoint',
               nodeType: currentNode.type,
               actionTarget: currentNode.data?.actionTarget || 'Unknown Action',
               reason: result.output?.reason || 'Approval required to proceed.',
@@ -114,14 +205,10 @@ export class ExecutionRunner {
               requestedBy: 'system',
             },
           });
-
-          // Break the linear loop because Temporal is orchestrating the pause.
-          // Once Temporal receives the signal, it will resume by re-invoking activities.
-          // For phase 4, since `execution.runner.ts` doesn't support resuming from middle naturally without Temporal,
-          // we just exit here. The Temporal workflow will actually orchestrate the next steps.
-          return;
+          return; // Exit execution orchestration; Temporal will resume later
         }
 
+        nodeStatus.set(currentNode.id, 'COMPLETED');
         await this.logger.logEvent(
           executionId,
           'NODE_COMPLETED',
@@ -131,7 +218,18 @@ export class ExecutionRunner {
         );
         inputs[currentNode.id] = result.output;
 
-        // Record Billing Event if there's a cost
+        // Determine which branches to skip (Runtime Branch Semantics)
+        if (result.nextNodeIds) {
+          const outgoingEdges = edges.filter(e => e.source === currentNode.id);
+          for (const edge of outgoingEdges) {
+            if (!result.nextNodeIds.includes(edge.target)) {
+              nodeStatus.set(edge.target, 'SKIPPED');
+              this.logger.logEvent(executionId, 'NODE_SKIPPED', edge.target, { reason: 'Branch not selected by logic node' });
+            }
+          }
+        }
+
+        // Record Billing
         const estimatedCost = result.metrics?.estimatedCost || 0;
         if (estimatedCost > 0) {
           const idempotencyKey = `usage-${executionId}-${currentNode.id}-${stepIndex}`;
@@ -150,16 +248,6 @@ export class ExecutionRunner {
         }
 
         stepIndex++;
-
-        // Find next node
-        const outgoingEdges = edges.filter((e) => e.source === currentNode.id);
-        if (outgoingEdges.length > 0) {
-          // For simplicity in Phase 4, just take the first edge. Later Logic nodes will return nextNodeIds.
-          const nextNodeId = result.nextNodeIds?.[0] || outgoingEdges[0].target;
-          currentNode = nodes.find((n) => n.id === nextNodeId);
-        } else {
-          currentNode = undefined; // End of flow
-        }
       }
 
       await this.stateManager.updateStatus(executionId, 'COMPLETED');
@@ -170,6 +258,40 @@ export class ExecutionRunner {
         error: error.message,
       });
       console.error(`Execution ${executionId} failed:`, error.message);
+    }
+  }
+
+  private validateDAG(nodes: any[], edges: any[]) {
+    const adj = new Map<string, string[]>();
+    nodes.forEach(n => adj.set(n.id, []));
+    edges.forEach(e => {
+      if (adj.has(e.source)) {
+        adj.get(e.source)!.push(e.target);
+      }
+    });
+
+    const visited = new Set<string>();
+    const recStack = new Set<string>();
+
+    const detectCycle = (nodeId: string): boolean => {
+      if (!visited.has(nodeId)) {
+        visited.add(nodeId);
+        recStack.add(nodeId);
+
+        const neighbors = adj.get(nodeId) || [];
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor) && detectCycle(neighbor)) return true;
+          else if (recStack.has(neighbor)) return true;
+        }
+      }
+      recStack.delete(nodeId);
+      return false;
+    };
+
+    for (const node of nodes) {
+      if (detectCycle(node.id)) {
+        throw new Error('Cycle detected in workflow graph. Execution aborted.');
+      }
     }
   }
 

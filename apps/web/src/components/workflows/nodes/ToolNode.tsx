@@ -44,31 +44,41 @@ function ToolNodeComponent({ data, selected }: { data: any, selected?: boolean }
         </div>
       );
     }
+  } else if (data.status === 'SKIPPED') {
+    borderColor = 'border-gray-400 dark:border-gray-600 border-dashed opacity-60';
   }
 
   return (
     <div className={`relative flex flex-col bg-white dark:bg-zinc-900 border ${borderColor} rounded-xl shadow-md transition-all duration-200 min-w-[200px] overflow-visible group`}>
       {/* Node Accent Left Border */}
-      <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-orange-500 rounded-l-xl opacity-80" />
+      <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${data.status === 'SKIPPED' ? 'bg-gray-400' : 'bg-orange-500'} rounded-l-xl opacity-80`} />
 
       {/* Target Handle (Left) */}
       <Handle 
         id="target" 
         type="target" 
         position={Position.Left} 
-        className="w-3 h-3 bg-gray-200 dark:bg-zinc-700 border-2 border-white dark:border-zinc-900 -left-1.5 z-10 transition-colors hover:bg-orange-400 hover:scale-125" 
+        className={`w-3 h-3 bg-gray-200 dark:bg-zinc-700 border-2 border-white dark:border-zinc-900 -left-1.5 z-10 transition-colors ${data.status === 'SKIPPED' ? '' : 'hover:bg-orange-400'} hover:scale-125`} 
       />
 
       {statusOverlay}
 
       {/* Node Header */}
-      <div className={`flex items-center gap-3 ${isCompact ? 'p-3' : 'px-4 py-3'}`}>
-        <div className="w-8 h-8 rounded-lg bg-orange-50 dark:bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-100 dark:border-orange-500/20 text-orange-600 dark:text-orange-400">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+      <div className={`flex items-center gap-3 ${isCompact ? 'p-3' : 'px-4 py-3'} ${data.status === 'SKIPPED' ? 'opacity-60' : ''}`}>
+        <div className={`w-8 h-8 rounded-lg ${data.status === 'SKIPPED' ? 'bg-gray-100 text-gray-500 dark:bg-zinc-800' : 'bg-orange-50 dark:bg-orange-500/10 border border-orange-100 dark:border-orange-500/20 text-orange-600 dark:text-orange-400'} flex items-center justify-center shrink-0`}>
+          {data.subType === 'email' ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+          ) : data.subType === 'wait' ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>
+          )}
         </div>
         <div className="flex flex-col min-w-0 flex-1">
           <div className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{data.label || 'Tool Integration'}</div>
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">Action / API</div>
+          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">
+            {data.subType === 'email' ? 'Send Email' : data.subType === 'wait' ? 'Wait / Delay' : 'Action / API'}
+          </div>
         </div>
       </div>
 

@@ -19,7 +19,8 @@ export function CopilotPanel({
   onClose: () => void,
   onGenerateWorkflow: (dagJson: any) => void,
   workspaceId: string,
-  hideHeader?: boolean
+  hideHeader?: boolean,
+  currentDagJson?: any
 }) {
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
@@ -57,7 +58,7 @@ export function CopilotPanel({
         setMessages(prev => [...prev, aiMsg]);
         
         try {
-          const generated = await generateWorkflowFromText(text, workspaceId, token);
+          const generated = await generateWorkflowFromText(text, workspaceId, token, currentDagJson);
           setMessages(prev => {
             const newMsgs = [...prev];
             newMsgs[newMsgs.length - 1].content = 'Workflow generated successfully! Click "Apply" in the preview to save it.';

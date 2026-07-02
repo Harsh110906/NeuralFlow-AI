@@ -16,6 +16,7 @@ export function SidebarPanel({
   onUpdateNode: (nodeId: string, newData: any) => void;
   onClose: () => void;
   onGenerateWorkflow: (dagJson: any) => void;
+  currentDagJson: any;
 }) {
   const [activeTab, setActiveTab] = useState<'copilot' | 'settings'>(selectedNode ? 'settings' : 'copilot');
 
@@ -56,6 +57,7 @@ export function SidebarPanel({
             onGenerateWorkflow={onGenerateWorkflow} 
             workspaceId={workspaceId} 
             hideHeader={true}
+            currentDagJson={currentDagJson}
           />
         ) : (
           <NodeSettings 

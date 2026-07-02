@@ -56,4 +56,10 @@ export class WorkflowController {
       throw new Error('Workspace ID is required for doctor analysis');
     return this.doctorService.analyzeWorkflow(workspaceId, body.dagJson);
   }
+
+  @Post(':id/execute')
+  // @Roles('ADMIN', 'MEMBER')
+  async executeWorkflow(@Param('id') id: string) {
+    return this.workflowService.executeWorkflow(id);
+  }
 }

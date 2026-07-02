@@ -29,11 +29,19 @@ function TriggerNodeComponent({ data, selected }: { data: any, selected?: boolea
       {/* Node Header */}
       <div className={`flex items-center gap-3 ${isCompact ? 'p-3' : 'px-4 py-3'}`}>
         <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-100 dark:border-emerald-500/20 text-emerald-600 dark:text-emerald-400">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          {data.subType === 'email' ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+          ) : data.subType === 'manual' ? (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+          ) : (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          )}
         </div>
         <div className="flex flex-col min-w-0 flex-1">
-          <div className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{data.label || 'Webhook Trigger'}</div>
-          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">Trigger</div>
+          <div className="text-sm font-bold text-gray-900 dark:text-gray-100 truncate">{data.label || 'Trigger'}</div>
+          <div className="text-[10px] text-gray-500 dark:text-gray-400 uppercase font-semibold tracking-wider">
+            {data.subType === 'email' ? 'Email Trigger' : data.subType === 'manual' ? 'Manual Trigger' : 'Webhook Trigger'}
+          </div>
         </div>
       </div>
 

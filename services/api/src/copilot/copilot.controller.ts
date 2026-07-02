@@ -38,14 +38,15 @@ export class CopilotController {
 
   @Post('generate-workflow')
   async generateWorkflow(
-    @Body() body: { prompt: string; workspaceId: string },
+    @Body() body: { prompt: string; workspaceId: string; currentDagJson?: any },
   ) {
     // Step 1: Generate Spec
-    const spec = await this.copilotService.generateWorkflowSpec(body.prompt);
+    const spec = await this.copilotService.generateWorkflowSpec(body.prompt, body.currentDagJson);
     // Step 2: Compile DAG
     const compiled = await this.copilotService.compileWorkflowDAG(
       body.workspaceId || 'production',
       spec,
+      body.currentDagJson
     );
     return compiled;
   }

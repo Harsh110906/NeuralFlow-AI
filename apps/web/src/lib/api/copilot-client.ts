@@ -17,14 +17,14 @@ export async function chatWithCopilotStream(message: string, history: any[], tok
   return res.body;
 }
 
-export async function generateWorkflowFromText(prompt: string, workspaceId: string, token: string | null) {
+export async function generateWorkflowFromText(prompt: string, workspaceId: string, token: string | null, currentDagJson: any = null) {
   const res = await fetch(`${API_BASE_URL}/copilot/generate-workflow`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...(token ? { Authorization: `Bearer ${token}` } : {})
     },
-    body: JSON.stringify({ prompt, workspaceId }),
+    body: JSON.stringify({ prompt, workspaceId, currentDagJson }),
   });
 
   if (!res.ok) {

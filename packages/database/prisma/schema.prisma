@@ -91,6 +91,7 @@ model Workflow {
   dagJson     Json? // The React Flow structure
   version     Int      @default(1)
   isPublished Boolean  @default(false)
+  status      String   @default("DRAFT") // DRAFT, TESTABLE, LIVE
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   healthScore Float?
