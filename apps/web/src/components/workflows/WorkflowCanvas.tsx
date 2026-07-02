@@ -505,10 +505,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         <SidebarPanel 
           workspaceId={workspaceId}
           selectedNode={selectedNode}
-          onUpdateNode={(id, newData) => {
-            setNodes((nds) => nds.map(n => n.id === id ? { ...n, data: { ...n.data, ...newData } } : n));
-            markDirty();
-          }}
+          onUpdateNode={handleUpdateNode}
           onClose={() => setIsSidebarOpen(false)} 
           onGenerateWorkflow={handleGenerateWorkflow} 
           currentDagJson={{ nodes, edges }}
