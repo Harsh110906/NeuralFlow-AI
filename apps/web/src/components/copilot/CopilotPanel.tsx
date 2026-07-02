@@ -12,10 +12,12 @@ interface Message {
 
 export function CopilotPanel({ 
   onClose, 
-  onGenerateWorkflow 
+  onGenerateWorkflow,
+  workspaceId
 }: { 
   onClose: () => void,
-  onGenerateWorkflow: (dagJson: any) => void
+  onGenerateWorkflow: (dagJson: any) => void,
+  workspaceId: string
 }) {
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
@@ -53,7 +55,7 @@ export function CopilotPanel({
         setMessages(prev => [...prev, aiMsg]);
         
         try {
-          const generated = await generateWorkflowFromText(text, 'dummy-workspace-id', token);
+          const generated = await generateWorkflowFromText(text, workspaceId, token);
           setMessages(prev => {
             const newMsgs = [...prev];
             newMsgs[newMsgs.length - 1].content = 'Workflow generated successfully! Click "Apply" in the preview to save it.';
@@ -169,7 +171,7 @@ export function CopilotPanel({
               value={input}
               onChange={e => setInput(e.target.value)}
               placeholder="Ask Copilot..."
-              className="flex-1 bg-gray-50 dark:bg-zinc-900 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+              className="flex-1 bg-gray-50 dark:bg-zinc-900 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
               disabled={isLoading}
             />
             <button 

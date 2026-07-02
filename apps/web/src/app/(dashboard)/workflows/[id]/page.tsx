@@ -1,4 +1,5 @@
 import { WorkflowCanvas } from '@/components/workflows/WorkflowCanvas';
+import { EditableWorkflowHeader } from '@/components/workflows/EditableWorkflowHeader';
 
 export default async function WorkflowPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
@@ -23,12 +24,13 @@ export default async function WorkflowPage(props: { params: Promise<{ id: string
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-zinc-950">
-      <div className="border-b p-4">
-        <h1 className="text-xl font-bold">{workflow?.name || 'Untitled Workflow'}</h1>
-        <p className="text-sm text-gray-500">{workflow?.description || 'Build your agentic workflow below'}</p>
-      </div>
-      <div className="flex-1">
-        <WorkflowCanvas workflowId={params.id} initialData={workflow?.dagJson} />
+      <EditableWorkflowHeader workflow={workflow} />
+      <div className="flex-1 relative">
+        <WorkflowCanvas 
+          workflowId={params.id} 
+          workspaceId={workflow?.workspaceId || 'dummy-workspace-id'} 
+          initialData={workflow?.dagJson} 
+        />
       </div>
     </div>
   );
