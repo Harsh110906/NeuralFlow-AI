@@ -1,11 +1,18 @@
 import { AgentStudio } from '@/components/agents/AgentStudio';
+import { auth } from '@clerk/nextjs/server';
+import { getAgent } from '@/lib/api/agents';
 
 export default async function AgentPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
-  // Mock fetch from backend
-  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-  const res = await fetch(`${API_BASE}/agents/${params.id}`, { cache: 'no-store' }).catch(() => null);
-  const agent = res?.ok ? await res.json() : null;
+  const { getToken } = await auth();
+  const token = await getToken();
+  
+  let agent = null;
+  try {
+    agent = await getAgent(params.id, token);
+  } catch (err) {
+    console.error('Failed to fetch agent:', err);
+  }
 
   if (!agent && params.id !== 'new') {
     return (

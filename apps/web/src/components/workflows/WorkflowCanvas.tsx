@@ -208,22 +208,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
 
   return (
     <div className="w-full h-full relative" style={{ minHeight: '600px' }}>
-      {/* Top Banner indicating Readiness Status */}
-      {!previewDag && (
-        <div className="absolute top-0 left-0 w-full z-10 flex justify-center mt-2 pointer-events-none">
-          {isReadyToRun ? (
-            <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              READY TO RUN
-            </div>
-          ) : (
-            <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              NEEDS SETUP: RUN DOCTOR
-            </div>
-          )}
-        </div>
-      )}
+      {/* Top Banner indicating Readiness Status was moved to the buttons container to avoid overlap */}
 
       {/* Preview Banner */}
       {previewDag && (
@@ -253,7 +238,20 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         </div>
       )}
 
-      <div className={`absolute top-4 ${isCopilotOpen ? 'right-[340px]' : 'right-4'} z-10 flex gap-2 transition-all duration-300`}>
+      <div className={`absolute top-4 ${isCopilotOpen ? 'right-[340px]' : 'right-4'} z-10 flex gap-2 items-center transition-all duration-300`}>
+        {!previewDag && (
+          isReadyToRun ? (
+            <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2 mr-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              READY TO RUN
+            </div>
+          ) : (
+            <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2 mr-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+              NEEDS SETUP: RUN DOCTOR
+            </div>
+          )
+        )}
         <button
           onClick={() => setIsCopilotOpen(!isCopilotOpen)}
           className={`px-4 py-2 ${isCopilotOpen ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-gray-700 border-gray-200'} font-bold rounded-md shadow-sm hover:bg-indigo-50 border flex items-center gap-2`}
@@ -385,6 +383,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
 
       <div className={`w-full h-full transition-all duration-300 ${isCopilotOpen ? 'pr-80' : ''}`}>
         <ReactFlow
+          colorMode="system"
           nodes={previewDag ? previewDag.nodes : nodes}
           edges={previewDag ? previewDag.edges : edges}
           onNodesChange={onNodesChange}
