@@ -67,13 +67,13 @@ export class PermissionsGuard implements CanActivate {
       workspaceId,
       requiredPermissions,
     );
-    
+
     if (!hasAccess) {
       throw new ForbiddenException(
         'User lacks required permissions for this workspace',
       );
     }
-    
+
     return true;
   }
 }

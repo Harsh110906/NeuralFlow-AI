@@ -57,19 +57,25 @@ export class WorkflowService {
 
   async updateWorkflow(id: string, dto: UpdateWorkflowDto) {
     if (dto.dagJson) {
-      const { nodes, edges } = dto.dagJson as any;
-      if (nodes && !Array.isArray(nodes)) throw new BadRequestException('nodes must be an array');
-      if (edges && !Array.isArray(edges)) throw new BadRequestException('edges must be an array');
-      
+      const { nodes, edges } = dto.dagJson;
+      if (nodes && !Array.isArray(nodes))
+        throw new BadRequestException('nodes must be an array');
+      if (edges && !Array.isArray(edges))
+        throw new BadRequestException('edges must be an array');
+
       if (nodes) {
         for (const node of nodes) {
-          if (!node.id || typeof node.id !== 'string') throw new BadRequestException('invalid node id');
+          if (!node.id || typeof node.id !== 'string')
+            throw new BadRequestException('invalid node id');
         }
       }
-      
+
       if (edges) {
         for (const edge of edges) {
-          if (!edge.id || !edge.source || !edge.target) throw new BadRequestException('invalid edge structure: missing id, source, or target');
+          if (!edge.id || !edge.source || !edge.target)
+            throw new BadRequestException(
+              'invalid edge structure: missing id, source, or target',
+            );
         }
       }
     }

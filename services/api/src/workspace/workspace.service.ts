@@ -12,10 +12,7 @@ export class WorkspaceService {
   async getWorkspaceBySlug(idOrSlug: string) {
     return this.prisma.workspace.findFirst({
       where: {
-        OR: [
-          { id: idOrSlug },
-          { slug: idOrSlug }
-        ]
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
       },
       include: {
         workflows: true,

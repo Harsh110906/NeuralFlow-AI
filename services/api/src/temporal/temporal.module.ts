@@ -13,10 +13,17 @@ import { Client, Connection } from '@temporalio/client';
           });
           return new Client({ connection });
         } catch (e) {
-          console.warn('⚠️ Could not connect to Temporal cluster. Workflow execution will be disabled.');
+          console.warn(
+            '⚠️ Could not connect to Temporal cluster. Workflow execution will be disabled.',
+          );
           // Return a mock client so the server doesn't crash on boot
           return {
-            workflow: { start: async () => { throw new Error('Temporal is not connected'); }, getHandle: () => ({ signal: async () => {} }) }
+            workflow: {
+              start: async () => {
+                throw new Error('Temporal is not connected');
+              },
+              getHandle: () => ({ signal: async () => {} }),
+            },
           };
         }
       },

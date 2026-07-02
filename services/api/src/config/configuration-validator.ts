@@ -63,7 +63,6 @@ export class ConfigurationValidator implements OnModuleInit {
       //     'FATAL: Local KMS provider cannot be used in production.',
       //   );
       // }
-
       // if (
       //   process.env.STRIPE_SECRET_KEY &&
       //   process.env.STRIPE_SECRET_KEY.includes('test')
