@@ -99,6 +99,16 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
     setPreviewDoctorIssues(null);
   };
 
+  const handleAddNode = (type: string, label: string) => {
+    const newNode = {
+      id: `${type}-${Date.now()}`,
+      type,
+      position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 },
+      data: { label },
+    };
+    setNodes((nds) => [...nds, newNode]);
+  };
+
   // Validation Logic
   useEffect(() => {
     // Structural Validation: Nodes/Edges exist and form a basic DAG (mock)
@@ -210,18 +220,35 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
     <div className="w-full h-full relative" style={{ minHeight: '600px' }}>
       {/* Top Banner indicating Readiness Status */}
       {!previewDag && (
-        <div className="absolute top-4 left-4 z-10">
+        <div className="absolute top-4 left-4 z-10 flex flex-col gap-4">
           {isReadyToRun ? (
-            <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2">
+            <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2 self-start">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
               READY TO RUN
             </div>
           ) : (
-            <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2">
+            <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2 self-start">
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
               NEEDS SETUP: RUN DOCTOR
             </div>
           )}
+
+          {/* Manual Node Addition Toolbar */}
+          <div className="bg-white/10 dark:bg-zinc-900/80 backdrop-blur-md border border-gray-200 dark:border-gray-800 p-2 rounded-xl shadow-lg flex flex-col gap-2 w-48">
+            <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 pt-1">Add Nodes</h3>
+            <button onClick={() => handleAddNode('trigger', 'New Trigger')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span> Trigger
+            </button>
+            <button onClick={() => handleAddNode('agent', 'New Agent')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
+              <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Agent
+            </button>
+            <button onClick={() => handleAddNode('tool', 'New Tool')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Tool
+            </button>
+            <button onClick={() => handleAddNode('logic', 'New Logic')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
+              <span className="w-2 h-2 rounded-full bg-amber-500"></span> Logic
+            </button>
+          </div>
         </div>
       )}
 
