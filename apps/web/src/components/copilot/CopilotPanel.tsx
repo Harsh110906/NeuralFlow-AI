@@ -13,11 +13,13 @@ interface Message {
 export function CopilotPanel({ 
   onClose, 
   onGenerateWorkflow,
-  workspaceId
+  workspaceId,
+  hideHeader
 }: { 
   onClose: () => void,
   onGenerateWorkflow: (dagJson: any) => void,
-  workspaceId: string
+  workspaceId: string,
+  hideHeader?: boolean
 }) {
   const { getToken } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
@@ -118,17 +120,19 @@ export function CopilotPanel({
   };
 
   return (
-    <div className="w-80 h-full bg-white dark:bg-zinc-950 border-l border-gray-200 dark:border-gray-800 flex flex-col shadow-xl z-20 absolute right-0 top-0">
+    <div className={`h-full bg-white dark:bg-zinc-950 flex flex-col ${hideHeader ? 'w-full' : 'w-80 border-l border-gray-200 dark:border-gray-800 shadow-xl z-20 absolute right-0 top-0'}`}>
       {/* Header */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900 shrink-0">
-        <h3 className="font-bold flex items-center gap-2">
-          <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-          Neural Copilot
-        </h3>
-        <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-        </button>
-      </div>
+      {!hideHeader && (
+        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex justify-between items-center bg-gray-50 dark:bg-zinc-900 shrink-0">
+          <h3 className="font-bold flex items-center gap-2">
+            <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            Neural Copilot
+          </h3>
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+      )}
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">

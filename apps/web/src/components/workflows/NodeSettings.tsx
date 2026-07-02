@@ -16,7 +16,7 @@ export function NodeSettings({
   useEffect(() => {
     if (selectedNode) {
       setLabel(selectedNode.data.label as string || '');
-      setSystemPrompt(selectedNode.data.overrideConfig?.systemPrompt || selectedNode.data.systemPrompt || '');
+      setSystemPrompt((selectedNode.data.overrideConfig as any)?.systemPrompt || (selectedNode.data as any).systemPrompt || '');
     }
   }, [selectedNode]);
 
@@ -69,7 +69,7 @@ export function NodeSettings({
                 setSystemPrompt(e.target.value);
                 handleUpdate({ 
                   overrideConfig: { 
-                    ...(selectedNode.data.overrideConfig || {}), 
+                    ...((selectedNode.data.overrideConfig as any) || {}), 
                     systemPrompt: e.target.value 
                   }
                 });
