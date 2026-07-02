@@ -10,6 +10,7 @@ export function SidebarPanel({
   onUpdateNode,
   onClose,
   onGenerateWorkflow,
+  currentDagJson,
 }: {
   workspaceId: string;
   selectedNode: Node | null;
