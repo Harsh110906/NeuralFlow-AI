@@ -12,7 +12,7 @@ function TriggerNodeComponent({ data, selected }: { data: any, selected?: boolea
   let borderColor = selected ? 'border-emerald-500 ring-4 ring-emerald-500/20 shadow-emerald-500/20' : 'border-gray-200 dark:border-zinc-700 hover:border-gray-300 dark:hover:border-zinc-600';
   
   // Triggers typically don't have RUNNING/COMPLETED since they start the flow, but just in case:
-  let statusOverlay = null;
+  const statusOverlay = null;
   if (data.status === 'RUNNING') {
     borderColor = 'border-emerald-400 ring-4 ring-emerald-400/30';
   } else if (data.status === 'COMPLETED') {
