@@ -37,7 +37,7 @@ const initialNodes = [
 ];
 const initialEdges: Edge[] = [];
 
-function Canvas({ workflowId, initialData }: { workflowId: string, initialData?: any }) {
+function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, workspaceId: string, initialData?: any }) {
   // Restore handling: fallback to empty array or initialNodes if initialData is invalid
   const [nodes, setNodes, onNodesChange] = useNodesState(initialData?.nodes || initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialData?.edges || initialEdges);
@@ -379,6 +379,7 @@ function Canvas({ workflowId, initialData }: { workflowId: string, initialData?:
         <CopilotPanel 
           onClose={() => setIsCopilotOpen(false)} 
           onGenerateWorkflow={handleGenerateWorkflow} 
+          workspaceId={workspaceId}
         />
       )}
 
@@ -401,7 +402,7 @@ function Canvas({ workflowId, initialData }: { workflowId: string, initialData?:
   );
 }
 
-export function WorkflowCanvas(props: { workflowId: string, initialData?: any }) {
+export function WorkflowCanvas(props: { workflowId: string, workspaceId: string, initialData?: any }) {
   return (
     <ReactFlowProvider>
       <Canvas {...props} />
