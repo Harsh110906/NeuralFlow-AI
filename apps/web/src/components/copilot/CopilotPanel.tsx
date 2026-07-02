@@ -14,7 +14,8 @@ export function CopilotPanel({
   onClose, 
   onGenerateWorkflow,
   workspaceId,
-  hideHeader
+  hideHeader,
+  currentDagJson
 }: { 
   onClose: () => void,
   onGenerateWorkflow: (dagJson: any) => void,
