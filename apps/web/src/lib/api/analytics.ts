@@ -53,7 +53,7 @@ export interface ExecutionDetail {
   events: ExecutionEvent[];
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function getWorkspaceMetrics(workspaceId: string, token: string | null): Promise<WorkspaceMetrics> {
   const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/analytics/metrics`, {

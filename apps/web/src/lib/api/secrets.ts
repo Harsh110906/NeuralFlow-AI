@@ -6,7 +6,7 @@ export interface SecretMetadataDto {
   inUseByConnectors: number;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function listSecrets(workspaceId: string, token: string | null): Promise<SecretMetadataDto[]> {
   const res = await fetch(`${API_BASE_URL}/workspaces/${workspaceId}/secrets`, {

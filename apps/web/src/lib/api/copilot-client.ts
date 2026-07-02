@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export async function chatWithCopilotStream(message: string, history: any[], token: string | null) {
   const res = await fetch(`${API_BASE_URL}/copilot/chat`, {
