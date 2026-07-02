@@ -1,13 +1,19 @@
 import { WorkflowCanvas } from '@/components/workflows/WorkflowCanvas';
 import { EditableWorkflowHeader } from '@/components/workflows/EditableWorkflowHeader';
+import { auth } from '@clerk/nextjs/server';
 
 export default async function WorkflowPage(props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
+  const { getToken } = await auth();
+  const token = await getToken();
   
   let workflow = null;
   try {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-    const res = await fetch(`${apiUrl}/workflows/${params.id}`, { cache: 'no-store' });
+    const res = await fetch(`${apiUrl}/workflows/${params.id}`, { 
+      cache: 'no-store',
+      headers: { Authorization: `Bearer ${token}` }
+    });
     if (res.ok) workflow = await res.json();
   } catch (e) {
     console.error('Fetch failed during build:', e);
