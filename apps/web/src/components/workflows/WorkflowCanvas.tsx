@@ -19,6 +19,8 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
+import { DensityProvider, useDensity } from './contexts/WorkflowContexts';
+
 import { TriggerNode } from './nodes/TriggerNode';
 import { AgentNode } from './nodes/AgentNode';
 import { ToolNode } from './nodes/ToolNode';
@@ -29,6 +31,7 @@ import { useAuth } from '@clerk/nextjs';
 import { updateWorkflow } from '@/lib/api/workflows';
 import { runWorkflowDoctor, DiagnosticIssue } from '@/lib/api/doctor';
 import { useUndoRedo } from '../../hooks/useUndoRedo';
+import { CommandPalette } from './CommandPalette';
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -43,7 +46,7 @@ const initialNodes = [
 const initialEdges: Edge[] = [];
 
 const defaultEdgeOptions = {
-  type: 'smoothstep',
+  type: 'default',
   animated: true,
   style: { strokeWidth: 2 },
 };
@@ -59,6 +62,8 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
   const [isStructurallyValid, setIsStructurallyValid] = useState(true);
   
   const { getViewport } = useReactFlow();
+  const { density, setDensity } = useDensity();
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
 
   const onConnect = useCallback(
     (params: Connection) => {
@@ -140,15 +145,60 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
     setPreviewDoctorIssues(null);
   };
 
-  const handleAddNode = (type: string, label: string) => {
+  const handleAddNode = (type: string, label: string, position?: {x: number, y: number}) => {
     takeSnapshot();
+    const id = `${type}-${Date.now()}`;
     const newNode = {
-      id: `${type}-${Date.now()}`,
+      id,
       type,
-      position: { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 },
+      position: position || { x: Math.random() * 200 + 100, y: Math.random() * 200 + 100 },
       data: { label },
     };
     setNodes((nds) => [...nds, newNode]);
+    return id;
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setShowCommandPalette(true);
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  const handleCommandSelect = (item: any) => {
+    setShowCommandPalette(false);
+    takeSnapshot();
+    
+    let spawnPosition = { x: 250, y: 250 };
+    if (selectedNode) {
+      spawnPosition = { 
+        x: selectedNode.position.x + 300, 
+        y: selectedNode.position.y 
+      };
+    } else {
+      const { x, y, zoom } = getViewport();
+      spawnPosition = { x: -x/zoom + window.innerWidth/(2*zoom), y: -y/zoom + window.innerHeight/(2*zoom) };
+    }
+
+    const newNodeId = handleAddNode(item.type, item.label, spawnPosition);
+
+    if (selectedNode) {
+      setEdges((eds) => [
+        ...eds,
+        {
+          id: `e-${selectedNode.id}-${newNodeId}`,
+          source: selectedNode.id,
+          target: newNodeId,
+          sourceHandle: 'source',
+          targetHandle: 'target',
+          type: 'default',
+        }
+      ]);
+    }
   };
 
   // Validation Logic
@@ -327,6 +377,15 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         </div>
 
         <button
+          onClick={() => setDensity(density === 'compact' ? 'expanded' : 'compact')}
+          className="px-4 py-2 bg-white text-gray-700 dark:bg-zinc-900 dark:text-gray-300 border-gray-200 dark:border-zinc-700 font-bold rounded-md shadow-sm hover:bg-gray-50 dark:hover:bg-zinc-800 border flex items-center gap-2 transition-colors"
+          title="Toggle Canvas Density"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          {density === 'compact' ? 'Expand' : 'Compact'}
+        </button>
+
+        <button
           onClick={() => setIsSidebarOpen(!isSidebarOpen)}
           className={`px-4 py-2 ${isSidebarOpen ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-gray-700 border-gray-200'} font-bold rounded-md shadow-sm hover:bg-indigo-50 border flex items-center gap-2`}
         >
@@ -477,6 +536,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
           multiSelectionKeyCode="Shift"
           selectionOnDrag={true}
           panOnScroll={true}
+          onlyRenderVisibleElements={true}
           fitView
           className={previewDag ? 'opacity-70 pointer-events-none filter grayscale-[30%]' : ''}
         >
@@ -485,6 +545,12 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
           <Background gap={12} size={1} />
         </ReactFlow>
       </div>
+
+      <CommandPalette 
+        isOpen={showCommandPalette} 
+        onClose={() => setShowCommandPalette(false)} 
+        onSelect={handleCommandSelect} 
+      />
     </div>
   );
 }
@@ -492,7 +558,9 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
 export function WorkflowCanvas(props: { workflowId: string, workspaceId: string, initialData?: any }) {
   return (
     <ReactFlowProvider>
-      <Canvas {...props} />
+      <DensityProvider>
+        <Canvas {...props} />
+      </DensityProvider>
     </ReactFlowProvider>
   );
 }

@@ -47,10 +47,8 @@ export function NodeSettings({
         <input 
           type="text" 
           value={label}
-          onChange={(e) => {
-            setLabel(e.target.value);
-            handleUpdate({ label: e.target.value });
-          }}
+          onChange={(e) => setLabel(e.target.value)}
+          onBlur={() => handleUpdate({ label })}
           className="w-full px-3 py-2 border border-gray-300 dark:border-zinc-700 rounded-md text-sm bg-white dark:bg-zinc-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
           placeholder="e.g. My Webhook"
         />
@@ -65,12 +63,12 @@ export function NodeSettings({
             </label>
             <textarea 
               value={systemPrompt}
-              onChange={(e) => {
-                setSystemPrompt(e.target.value);
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              onBlur={() => {
                 handleUpdate({ 
                   overrideConfig: { 
                     ...((selectedNode.data.overrideConfig as any) || {}), 
-                    systemPrompt: e.target.value 
+                    systemPrompt 
                   }
                 });
               }}
