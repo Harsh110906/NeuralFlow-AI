@@ -1,7 +1,7 @@
 import { Handle, Position } from '@xyflow/react';
 
-export function TriggerNode({ data }: { data: any }) {
-  let borderColor = 'border-emerald-500';
+export function TriggerNode({ data, selected }: { data: any, selected?: boolean }) {
+  let borderColor = selected ? 'border-indigo-500 ring-4 ring-indigo-500/20' : 'border-emerald-500';
   if (data.status === 'RUNNING') borderColor = 'border-yellow-400 ring-4 ring-yellow-400/50 animate-pulse';
   else if (data.status === 'COMPLETED') borderColor = 'border-emerald-600 bg-emerald-50';
   else if (data.status === 'FAILED') borderColor = 'border-red-500 bg-red-50';
@@ -17,7 +17,7 @@ export function TriggerNode({ data }: { data: any }) {
           <div className="text-xs text-gray-500">Starts workflow</div>
         </div>
       </div>
-      <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-emerald-500" />
+      <Handle id="source" type="source" position={Position.Bottom} className="w-3 h-3 bg-emerald-500" />
     </div>
   );
 }

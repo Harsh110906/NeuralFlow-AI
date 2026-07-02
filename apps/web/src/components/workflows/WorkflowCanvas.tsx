@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import {
   ReactFlow,
   Controls,
@@ -10,8 +10,12 @@ import {
   addEdge,
   Connection,
   Edge,
+  Node,
   useReactFlow,
   ReactFlowProvider,
+  reconnectEdge,
+  OnSelectionChangeParams,
+  MiniMap
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
@@ -20,10 +24,11 @@ import { AgentNode } from './nodes/AgentNode';
 import { ToolNode } from './nodes/ToolNode';
 import { LogicNode } from './nodes/LogicNode';
 import { ExecutionPanel } from '../executions/ExecutionPanel';
-import { CopilotPanel } from '../copilot/CopilotPanel';
+import { SidebarPanel } from './SidebarPanel';
 import { useAuth } from '@clerk/nextjs';
 import { updateWorkflow } from '@/lib/api/workflows';
 import { runWorkflowDoctor, DiagnosticIssue } from '@/lib/api/doctor';
+import { useUndoRedo } from '../../hooks/useUndoRedo';
 
 const nodeTypes = {
   trigger: TriggerNode,
@@ -33,28 +38,67 @@ const nodeTypes = {
 };
 
 const initialNodes = [
-  { id: '1', position: { x: 250, y: 5 }, data: { label: 'Webhook Trigger' }, type: 'input' },
+  { id: '1', position: { x: 250, y: 5 }, data: { label: 'Webhook Trigger' }, type: 'trigger' },
 ];
 const initialEdges: Edge[] = [];
 
+const defaultEdgeOptions = {
+  type: 'smoothstep',
+  animated: true,
+  style: { strokeWidth: 2 },
+};
+
 function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, workspaceId: string, initialData?: any }) {
-  // Restore handling: fallback to empty array or initialNodes if initialData is invalid
+  // Restore handling
   const [nodes, setNodes, onNodesChange] = useNodesState(initialData?.nodes || initialNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialData?.edges || initialEdges);
-  const [isSaving, setIsSaving] = useState(false);
   
-  // Validation States
+  const { undo, redo, takeSnapshot } = useUndoRedo(initialNodes, initialEdges, setNodes, setEdges);
+
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [isStructurallyValid, setIsStructurallyValid] = useState(true);
-  const [semanticErrors, setSemanticErrors] = useState<string[]>([]);
-
-
+  
   const { getViewport } = useReactFlow();
 
   const onConnect = useCallback(
-    (params: Connection) => setEdges((eds) => addEdge(params, eds)),
-    [setEdges]
+    (params: Connection) => {
+      takeSnapshot();
+      setEdges((eds) => addEdge(params, eds));
+    },
+    [setEdges, takeSnapshot]
   );
 
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      takeSnapshot();
+      setEdges((els) => reconnectEdge(oldEdge, newConnection, els));
+    },
+    [setEdges, takeSnapshot]
+  );
+
+  const [selectedNode, setSelectedNode] = useState<Node | null>(null);
+  const onSelectionChange = useCallback(({ nodes }: OnSelectionChangeParams) => {
+    if (nodes.length === 1) {
+      setSelectedNode(nodes[0]);
+    } else {
+      setSelectedNode(null);
+    }
+  }, []);
+
+  const handleUpdateNode = useCallback((nodeId: string, newData: any) => {
+    takeSnapshot();
+    setNodes((nds) => nds.map(node => {
+      if (node.id === nodeId) {
+        return { ...node, data: { ...node.data, ...newData } };
+      }
+      return node;
+    }));
+  }, [setNodes, takeSnapshot]);
+
+  // Sidebar States
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+  // Execution & Simulation States
   const [activeExecutionId, setActiveExecutionId] = useState<string | null>(null);
   const [simulationInfo, setSimulationInfo] = useState<any>(null);
 
@@ -62,9 +106,6 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
   const [isDoctorRunning, setIsDoctorRunning] = useState(false);
   const [doctorIssues, setDoctorIssues] = useState<DiagnosticIssue[] | null>(null);
   const [showDoctorModal, setShowDoctorModal] = useState(false);
-
-  // Copilot States
-  const [isCopilotOpen, setIsCopilotOpen] = useState(false);
   
   // Generative Preview States
   const [previewDag, setPreviewDag] = useState<{nodes: any[], edges: any[]} | null>(null);
@@ -76,7 +117,6 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
     setPreviewDag(dagJson);
     try {
       const token = await getToken();
-      // Run Doctor on preview immediately
       const issues = await runWorkflowDoctor(workflowId, 'dummy-workspace-id', dagJson, token);
       setPreviewDoctorIssues(issues);
     } catch (e) {
@@ -87,6 +127,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
 
   const applyPreview = () => {
     if (previewDag) {
+      takeSnapshot();
       setNodes(previewDag.nodes);
       setEdges(previewDag.edges);
       setPreviewDag(null);
@@ -100,6 +141,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
   };
 
   const handleAddNode = (type: string, label: string) => {
+    takeSnapshot();
     const newNode = {
       id: `${type}-${Date.now()}`,
       type,
@@ -111,31 +153,51 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
 
   // Validation Logic
   useEffect(() => {
-    // Structural Validation: Nodes/Edges exist and form a basic DAG (mock)
-    if (nodes.length > 0) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsStructurallyValid(true);
-    } else {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setIsStructurallyValid(false);
-    }
-
-    // Reset Doctor status when graph changes
+    if (nodes.length > 0) setIsStructurallyValid(true);
+    else setIsStructurallyValid(false);
     setDoctorIssues(null);
-
   }, [nodes, edges]);
 
-  // Semantic readiness now relies on Doctor output
-  const hasDoctorErrors = doctorIssues?.some(i => i.severity === 'ERROR') || false;
-  // If doctor hasn't run, we assume it needs setup/is not ready, or we could just rely on structural.
-  // We'll enforce that the Doctor MUST be run and return no errors to be "READY".
-  const isReadyToRun = doctorIssues !== null && !hasDoctorErrors && isStructurallyValid;
+  // Autosave Debounce Logic
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialMount = useRef(true);
+
+  const performSave = async (currentNodes: Node[], currentEdges: Edge[]) => {
+    if (!isStructurallyValid) return;
+    setSaveStatus('saving');
+    try {
+      const token = await getToken();
+      const viewport = getViewport();
+      const dagPayload = { schemaVersion: 1, nodes: currentNodes, edges: currentEdges, viewport };
+      await updateWorkflow(workflowId, { dagJson: dagPayload }, token);
+      setSaveStatus('saved');
+      setTimeout(() => setSaveStatus('idle'), 2000);
+    } catch (err) {
+      console.error(err);
+      setSaveStatus('error');
+    }
+  };
+
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    saveTimeoutRef.current = setTimeout(() => {
+      performSave(nodes, edges);
+    }, 2000);
+    return () => {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+    };
+  }, [nodes, edges]);
+
+  const isReadyToRun = doctorIssues !== null && !(doctorIssues?.some(i => i.severity === 'ERROR')) && isStructurallyValid;
 
   const handleRunDoctor = async () => {
     setIsDoctorRunning(true);
     try {
       const token = await getToken();
-      // Fetch workflow to get actual workspaceId
       const wfRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/workflows/${workflowId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -153,41 +215,11 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
     }
   };
 
-  const handleSave = async () => {
-    if (!isStructurallyValid) {
-      alert('Workflow structural validation failed. Cannot save.');
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const token = await getToken();
-      const viewport = getViewport();
-      
-      // Structural Serialization payload
-      const dagPayload = {
-        schemaVersion: 1,
-        nodes,
-        edges,
-        viewport
-      };
-
-      await updateWorkflow(workflowId, { dagJson: dagPayload }, token);
-      alert('Saved structurally valid workflow!');
-    } catch (err) {
-      console.error(err);
-      alert('Failed to save workflow.');
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   const handleRun = async () => {
     if (!isReadyToRun) {
-      alert(`Cannot run workflow. Semantic validation failed:\n\n${semanticErrors.join('\n')}`);
+      alert(`Cannot run workflow. Semantic validation failed.`);
       return;
     }
-
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'}/executions/start/${workflowId}`, {
         method: 'POST',
@@ -221,32 +253,38 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
       {/* Top Banner indicating Readiness Status */}
       {!previewDag && (
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-4">
-          {isReadyToRun ? (
-            <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2 self-start">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              READY TO RUN
-            </div>
-          ) : (
-            <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2 self-start">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
-              NEEDS SETUP: RUN DOCTOR
-            </div>
-          )}
+          <div className="flex items-center gap-2">
+            {isReadyToRun ? (
+              <div className="bg-emerald-100 text-emerald-800 px-4 py-1.5 rounded-full text-xs font-bold border border-emerald-300 shadow-sm flex items-center gap-2 self-start">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                READY TO RUN
+              </div>
+            ) : (
+              <div className="bg-amber-100 text-amber-800 px-4 py-1.5 rounded-full text-xs font-bold border border-amber-300 shadow-sm flex items-center gap-2 self-start">
+                <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                NEEDS SETUP: RUN DOCTOR
+              </div>
+            )}
+            {/* Auto-Save Indicator */}
+            {saveStatus === 'saving' && <span className="text-xs font-bold text-gray-400 bg-white/50 dark:bg-black/20 px-2 py-1 rounded">Saving...</span>}
+            {saveStatus === 'saved' && <span className="text-xs font-bold text-emerald-500 bg-white/50 dark:bg-black/20 px-2 py-1 rounded">Saved</span>}
+            {saveStatus === 'error' && <span className="text-xs font-bold text-red-500 bg-white/50 dark:bg-black/20 px-2 py-1 rounded">Save Error</span>}
+          </div>
 
           {/* Manual Node Addition Toolbar */}
           <div className="bg-white/10 dark:bg-zinc-900/80 backdrop-blur-md border border-gray-200 dark:border-gray-800 p-2 rounded-xl shadow-lg flex flex-col gap-2 w-48">
             <h3 className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider px-2 pt-1">Add Nodes</h3>
             <button onClick={() => handleAddNode('trigger', 'New Trigger')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
-              <span className="w-2 h-2 rounded-full bg-blue-500"></span> Trigger
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Trigger
             </button>
             <button onClick={() => handleAddNode('agent', 'New Agent')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
-              <span className="w-2 h-2 rounded-full bg-indigo-500"></span> Agent
+              <span className="w-2 h-2 rounded-full bg-blue-500"></span> Agent
             </button>
             <button onClick={() => handleAddNode('tool', 'New Tool')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500"></span> Tool
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span> Tool
             </button>
             <button onClick={() => handleAddNode('logic', 'New Logic')} className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-zinc-800 rounded-lg transition-colors text-left border border-transparent hover:border-gray-200 dark:hover:border-zinc-700">
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span> Logic
+              <span className="w-2 h-2 rounded-full bg-purple-500"></span> Logic
             </button>
           </div>
         </div>
@@ -280,13 +318,20 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         </div>
       )}
 
-      <div className={`absolute top-4 ${isCopilotOpen ? 'right-[340px]' : 'right-4'} z-10 flex gap-2 items-center transition-all duration-300`}>
+      {/* Editor Actions Toolbar */}
+      <div className={`absolute top-4 ${isSidebarOpen ? 'right-[340px]' : 'right-4'} z-10 flex gap-2 items-center transition-all duration-300`}>
+        <div className="flex bg-white dark:bg-zinc-900 border border-gray-200 dark:border-zinc-700 rounded-md shadow-sm mr-2 overflow-hidden">
+          <button onClick={undo} className="px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Undo (Ctrl+Z)"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg></button>
+          <div className="w-px bg-gray-200 dark:bg-zinc-700"></div>
+          <button onClick={redo} className="px-3 py-2 text-gray-500 hover:text-gray-900 hover:bg-gray-100 dark:hover:bg-zinc-800" title="Redo (Ctrl+Shift+Z)"><svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6" /></svg></button>
+        </div>
+
         <button
-          onClick={() => setIsCopilotOpen(!isCopilotOpen)}
-          className={`px-4 py-2 ${isCopilotOpen ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-gray-700 border-gray-200'} font-bold rounded-md shadow-sm hover:bg-indigo-50 border flex items-center gap-2`}
+          onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+          className={`px-4 py-2 ${isSidebarOpen ? 'bg-indigo-100 text-indigo-700 border-indigo-200' : 'bg-white text-gray-700 border-gray-200'} font-bold rounded-md shadow-sm hover:bg-indigo-50 border flex items-center gap-2`}
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" /></svg>
-          Copilot
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" /></svg>
+          Sidebar
         </button>
         <button
           onClick={handleRunDoctor}
@@ -311,14 +356,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
           className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-md shadow-sm hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-2 transition-opacity"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-          Run Workflow
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={isSaving || !isStructurallyValid}
-          className="px-4 py-2 bg-blue-600 text-white font-bold rounded-md shadow-sm hover:bg-blue-700 disabled:opacity-50 transition-opacity"
-        >
-          {isSaving ? 'Saving...' : 'Save Draft'}
+          Run
         </button>
       </div>
 
@@ -345,6 +383,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         />
       )}
 
+      {/* Doctor Modal */}
       {showDoctorModal && doctorIssues && (
         <div className="absolute inset-0 bg-black/50 z-50 flex items-center justify-center backdrop-blur-sm">
           <div className="bg-white dark:bg-zinc-900 rounded-xl shadow-2xl max-w-2xl w-full max-h-[80vh] flex flex-col border border-gray-200 dark:border-gray-800">
@@ -355,7 +394,7 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
                   Diagnostic Report
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  {hasDoctorErrors ? 'Resolve errors to run workflow.' : 'Workflow is ready to run.'}
+                  {doctorIssues?.some(i => i.severity === 'ERROR') ? 'Resolve errors to run workflow.' : 'Workflow is ready to run.'}
                 </p>
               </div>
               <button onClick={() => setShowDoctorModal(false)} className="text-gray-400 hover:text-gray-700 dark:hover:text-white">
@@ -402,27 +441,47 @@ function Canvas({ workflowId, workspaceId, initialData }: { workflowId: string, 
         </div>
       )}
       
-      {isCopilotOpen && (
-        <CopilotPanel 
-          onClose={() => setIsCopilotOpen(false)} 
-          onGenerateWorkflow={handleGenerateWorkflow} 
+      {isSidebarOpen && (
+        <SidebarPanel 
           workspaceId={workspaceId}
+          selectedNode={selectedNode}
+          onUpdateNode={handleUpdateNode}
+          onClose={() => setIsSidebarOpen(false)} 
+          onGenerateWorkflow={handleGenerateWorkflow} 
         />
       )}
 
-      <div className={`w-full h-full transition-all duration-300 ${isCopilotOpen ? 'pr-80' : ''}`}>
+      <div className={`w-full h-full transition-all duration-300 ${isSidebarOpen ? 'pr-80' : ''}`}>
         <ReactFlow
           colorMode="dark"
           nodes={previewDag ? previewDag.nodes : nodes}
           edges={previewDag ? previewDag.edges : edges}
-          onNodesChange={onNodesChange}
-          onEdgesChange={onEdgesChange}
+          onNodesChange={(changes) => {
+            if (changes.some(c => c.type === 'position' || c.type === 'remove')) {
+              takeSnapshot();
+            }
+            onNodesChange(changes);
+          }}
+          onEdgesChange={(changes) => {
+            if (changes.some(c => c.type === 'remove' || c.type === 'add')) {
+              takeSnapshot();
+            }
+            onEdgesChange(changes);
+          }}
           onConnect={onConnect}
+          onReconnect={onReconnect}
+          onSelectionChange={onSelectionChange}
           nodeTypes={nodeTypes}
+          defaultEdgeOptions={defaultEdgeOptions}
+          deleteKeyCode={["Backspace", "Delete"]}
+          multiSelectionKeyCode="Shift"
+          selectionOnDrag={true}
+          panOnScroll={true}
           fitView
           className={previewDag ? 'opacity-70 pointer-events-none filter grayscale-[30%]' : ''}
         >
           <Controls />
+          <MiniMap zoomable pannable position="bottom-right" className="!bg-zinc-900 border-zinc-800" maskColor="rgba(0,0,0,0.5)" />
           <Background gap={12} size={1} />
         </ReactFlow>
       </div>

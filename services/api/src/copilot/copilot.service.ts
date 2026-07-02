@@ -56,19 +56,6 @@ Respond ONLY with valid JSON.`;
   }
 
   async compileWorkflowDAG(workspaceId: string, spec: any) {
-    // 1. Create Agents
-    const createdAgents: any[] = [];
-    for (const a of spec.agents || []) {
-      const agent = await this.prisma.agent.create({
-        data: {
-          workspaceId,
-          name: a.name,
-          systemPrompt: a.systemPrompt,
-        },
-      });
-      createdAgents.push(agent);
-    }
-
     // 2. Build DAG
     const nodes: any[] = [];
     const edges: any[] = [];
@@ -79,10 +66,12 @@ Respond ONLY with valid JSON.`;
       const data: any = { label: step.label };
 
       if (step.type === 'agent') {
-        const matchingAgent = createdAgents.find(
-          (a) => a.name === step.agentName,
+        const matchingAgent = (spec.agents || []).find(
+          (a: any) => a.name === step.agentName,
         );
-        if (matchingAgent) data.agentId = matchingAgent.id;
+        if (matchingAgent) {
+          data.overrideConfig = { systemPrompt: matchingAgent.systemPrompt };
+        }
       }
 
       nodes.push({
@@ -107,7 +96,7 @@ Respond ONLY with valid JSON.`;
       name: spec.name,
       description: spec.goal,
       dagJson: { nodes, edges },
-      agents: createdAgents,
+      agents: [], // Agents are now local overrides, no DB records created
     };
   }
 }
