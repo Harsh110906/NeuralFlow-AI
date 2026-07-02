@@ -4,6 +4,7 @@ import { WorkflowDoctorService } from './doctor.service';
 import { UpdateWorkflowDto } from './dto/update-workflow.dto';
 import { CreateWorkflowDto } from './dto/create-workflow.dto';
 import { TemplateRegistry } from '../template/template.registry';
+import { ExecutionService } from '../execution/execution.service';
 // import { RolesGuard, Roles } from '../auth/roles.guard';
 // import { WorkspaceGuard } from '../auth/workspace.guard';
 
@@ -13,6 +14,7 @@ export class WorkflowController {
   constructor(
     private readonly workflowService: WorkflowService,
     private readonly doctorService: WorkflowDoctorService,
+    private readonly executionService: ExecutionService,
   ) {}
 
   @Get('templates/beta')
@@ -60,6 +62,6 @@ export class WorkflowController {
   @Post(':id/execute')
   // @Roles('ADMIN', 'MEMBER')
   async executeWorkflow(@Param('id') id: string) {
-    return this.workflowService.executeWorkflow(id);
+    return this.executionService.startExecution(id);
   }
 }
