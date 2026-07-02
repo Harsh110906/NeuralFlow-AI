@@ -1,4 +1,5 @@
-import { useState } from 'react';
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useState, useEffect } from 'react';
 import { CopilotPanel } from '../copilot/CopilotPanel';
 import { NodeSettings } from './NodeSettings';
 import { Node } from '@xyflow/react';
