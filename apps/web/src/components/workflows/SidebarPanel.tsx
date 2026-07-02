@@ -18,12 +18,13 @@ export function SidebarPanel({
 }) {
   const [activeTab, setActiveTab] = useState<'copilot' | 'settings'>(selectedNode ? 'settings' : 'copilot');
 
-  // If a node gets selected while panel is open, auto-switch to settings tab
-  if (selectedNode && activeTab === 'copilot' && !window.__preventAutoTabSwitch) {
-    setActiveTab('settings');
-    window.__preventAutoTabSwitch = true;
-    setTimeout(() => { window.__preventAutoTabSwitch = false; }, 100);
-  }
+  useEffect(() => {
+    if (selectedNode && activeTab === 'copilot' && !window.__preventAutoTabSwitch) {
+      setActiveTab('settings');
+      window.__preventAutoTabSwitch = true;
+      setTimeout(() => { window.__preventAutoTabSwitch = false; }, 100);
+    }
+  }, [selectedNode, activeTab]);
 
   return (
     <div className="absolute top-4 right-4 z-20 w-80 bg-white dark:bg-zinc-950 border border-gray-200 dark:border-zinc-800 rounded-xl shadow-2xl flex flex-col overflow-hidden h-[calc(100vh-120px)] transition-all">
